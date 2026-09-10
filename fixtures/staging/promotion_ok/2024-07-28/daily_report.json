@@ -59,5 +59,60 @@
     "commission_per_share": 0.0,
     "commission_per_contract": 0.0,
     "option_half_spread_bps": 0.0
-  }
+  },
+  "fills": [
+    {
+      "lane": "A",
+      "session_date": "2024-07-28",
+      "ts": "2024-07-28T14:02:00+00:00",
+      "symbol": "US.QQQ",
+      "side": "BUY",
+      "qty": 8,
+      "price": 430.0,
+      "notional": 3440.0,
+      "mode": "mock_fill"
+    },
+    {
+      "lane": "B",
+      "session_date": "2024-07-28",
+      "ts": "2024-07-28T14:05:00+00:00",
+      "symbol": "US.AAPL",
+      "side": "BUY",
+      "qty": 1,
+      "price": 2.1,
+      "notional": 210.0,
+      "mode": "mock_fill"
+    },
+    {
+      "lane": "B",
+      "session_date": "2024-07-28",
+      "ts": "2024-07-28T14:05:01+00:00",
+      "symbol": "US.AAPL",
+      "side": "BUY",
+      "qty": 1,
+      "price": 2.1,
+      "notional": 210.0,
+      "mode": "mock_fill"
+    }
+  ],
+  "open_positions": [
+    {
+      "lane": "A",
+      "symbol": "US.QQQ",
+      "side": "LONG",
+      "qty": 8.0,
+      "avg_price": 430.0,
+      "notional": 3440.0,
+      "unrealized_pnl": 24.5
+    },
+    {
+      "lane": "B",
+      "symbol": "US.AAPL",
+      "side": "BUY",
+      "qty": 2.0,
+      "notional": 420.0,
+      "unrealized_pnl": null,
+      "note": "期权腿 2 笔"
+    }
+  ]
 }

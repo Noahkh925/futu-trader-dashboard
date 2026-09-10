@@ -151,4 +151,11 @@ def validate_daily_report(report: dict[str, Any]) -> dict[str, Any]:
         if key not in paths or not isinstance(paths[key], str):
             raise SchemaError(f"artifact_paths.{key}: expected string")
 
+    # Optional PROH-90 fills[] — cloud boards sync report-only; keep loose.
+    if "fills" in data and data["fills"] is not None:
+        fills_list = _require_list(data["fills"], "fills")
+        for i, row in enumerate(fills_list):
+            if not isinstance(row, dict):
+                raise SchemaError(f"fills[{i}]: expected object")
+
     return data
