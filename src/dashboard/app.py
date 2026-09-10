@@ -117,6 +117,23 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   border: 1px solid rgba(20,40,60,0.08);
   color: #243743;
 }
+.kill-banner {
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  margin: 0 0 0.75rem;
+  border: 1px solid rgba(20,40,60,0.08);
+  font-weight: 650;
+}
+.kill-banner.off {
+  background: #e8f7f1;
+  border-left: 5px solid #1f8a5b;
+  color: #145c3c;
+}
+.kill-banner.on {
+  background: #fff5f4;
+  border-left: 5px solid #c23b2e;
+  color: #8a241c;
+}
 .fresh-bar {
   border-radius: 12px;
   padding: 0.65rem 0.9rem;
@@ -145,6 +162,19 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 .lane-card .label { color: #6a7a86; font-size: 0.82rem; margin: 0; }
 .lane-card .value { color: #13232d; font-size: 1.12rem; font-weight: 700; margin: 0.28rem 0 0.2rem; }
 .lane-card .meta { color: #5b6b76; font-size: 0.84rem; margin: 0; line-height: 1.4; }
+.q-block {
+  margin: 0.15rem 0 0.35rem;
+}
+.q-block h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.05rem;
+  color: #13232d;
+}
+.q-block .hint {
+  color: #5b6b76;
+  font-size: 0.88rem;
+  margin: 0 0 0.55rem;
+}
 .pnl-big {
   font-size: 2rem;
   font-weight: 700;
@@ -154,6 +184,20 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 .pnl-big.up { color: #1f8a5b; }
 .pnl-big.down { color: #c23b2e; }
+.hold-line {
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  margin: 0.35rem 0;
+  background: #fff;
+  border: 1px solid rgba(20,40,60,0.07);
+  border-left: 4px solid #2f7d6d;
+  color: #13232d;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.hold-line.empty { border-left-color: #7e8d99; color: #3d4f5c; font-weight: 500; }
+.hold-line.halt { border-left-color: #c23b2e; }
 .event-row {
   padding: 0.45rem 0.55rem;
   border-radius: 10px;
@@ -193,20 +237,6 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 div[data-testid="stMetricValue"] { font-size: 1.28rem !important; font-weight: 650 !important; }
 div[data-testid="stMetricLabel"] { color: #5b6b76 !important; }
 div[data-testid="stAlert"] { border-radius: 12px; }
-
-div[data-testid="stRadio"] > label { display: none; }
-div[data-testid="stRadio"] div[role="radiogroup"] {
-  gap: 0.4rem;
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(20,40,60,0.08);
-  border-radius: 999px;
-  padding: 0.28rem;
-}
-div[data-testid="stRadio"] label[data-baseweb="radio"] {
-  background: transparent;
-  border-radius: 999px !important;
-  padding: 0.28rem 0.85rem !important;
-}
 
 @media (max-width: 768px) {
   .ops-hero h2 { font-size: 1.28rem; }
@@ -264,7 +294,7 @@ def _worry(snap: OpsSnapshot) -> tuple[str, str]:
         return "watch", "留意一下：虚拟盘连接不顺"
     if snap.last_halts:
         return "watch", "留意一下：最近有停手记录"
-    return "calm", "不用担心：真下单仍关着"
+    return "calm", "今天安全：真下单仍关着"
 
 
 def _tone(snap: OpsSnapshot) -> str:
@@ -282,6 +312,49 @@ def _lane_tone(state: str) -> str:
     if state in {"LOCKED", "DEPLOY", "SCOUT"}:
         return "busy"
     return "idle"
+
+
+def _holding_rows(snap: OpsSnapshot) -> list[tuple[str, str]]:
+    """Plain-Chinese holdings lines: (css_class, text)."""
+    a_sum: dict[str, Any] = snap.lane_a_summary or {}
+    b_sum: dict[str, Any] = snap.lane_b_summary or {}
+    rows: list[tuple[str, str]] = []
+
+    a_sym = a_sum.get("symbol") or "未标明标的"
+    if snap.lane_a_state == "LOCKED":
+        rows.append(("busy", f"路线 A（趋势）：持有 {a_sym}"))
+    elif snap.lane_a_state == "HALT":
+        reason = a_sum.get("halt_reason_zh")
+        extra = f"（{reason}）" if reason else ""
+        rows.append(("halt", f"路线 A：已停手，没有新仓{extra}"))
+    else:
+        rows.append(("empty", f"路线 A：暂无持仓 · {snap.lane_a_label}"))
+
+    b_sym = b_sum.get("prefer_symbol") or "未标明标的"
+    if snap.lane_b_state == "DEPLOY":
+        rows.append(("busy", f"路线 B（财报期权）：持仓中 · 关注 {b_sym}"))
+    elif snap.lane_b_state == "HALT":
+        reason = b_sum.get("halt_reason_zh")
+        extra = f"（{reason}）" if reason else ""
+        rows.append(("halt", f"路线 B：已停手，没有新仓{extra}"))
+    elif snap.lane_b_state == "SCOUT":
+        rows.append(("empty", f"路线 B：暂无持仓 · 正在扫 {b_sym}"))
+    else:
+        rows.append(("empty", f"路线 B：暂无持仓 · {snap.lane_b_label}"))
+
+    return rows
+
+
+def _fills_summary(snap: OpsSnapshot) -> str:
+    a = int((snap.lane_a_summary or {}).get("fills_count") or 0)
+    b = int((snap.lane_b_summary or {}).get("fills_count") or 0)
+    total = a + b
+    if not snap.last_session_date:
+        return "还没有成交摘要。"
+    return (
+        f"{snap.last_session_date}：一共成交 {total} 笔"
+        f"（路线 A {a} 笔 · 路线 B {b} 笔）。"
+    )
 
 
 def _require_password() -> bool:
@@ -315,17 +388,30 @@ def _init_session() -> DashboardState:
     return st.session_state.dashboard
 
 
+def _render_kill_switch(snap: OpsSnapshot) -> None:
+    if snap.trading_enabled:
+        st.markdown(
+            '<div class="kill-banner on">真下单总开关：开着 — 真钱通道已打开（此页只能看，不能改）</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="kill-banner off">真下单总开关：关闭 — 不会真钱下单（此页只能看，不能打开）</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def _render_freshness(snap: OpsSnapshot) -> None:
     status = snap.sync_status or "empty"
     cls = status if status in {"ok", "stale", "failed", "empty"} else "watch"
     as_of = snap.data_as_of or "未知"
     synced = snap.synced_at or "—"
-    opend = "可达" if snap.opend_reachable else "不可达"
     bits = [
-        f"<strong>数据新鲜度 · {status}</strong>",
+        f"<strong>数据新鲜度</strong>",
+        f"状态 {status}",
         f"截至 {as_of}",
         f"同步 {synced}",
-        f"OpenD {opend}",
+        f"连接 {'正常' if snap.opend_reachable else '未连上'}",
     ]
     if snap.sync_error:
         bits.append(snap.sync_error)
@@ -337,125 +423,40 @@ def _render_freshness(snap: OpsSnapshot) -> None:
     )
 
 
-def _render_hero(snap: OpsSnapshot) -> None:
+def _render_q_safe(snap: OpsSnapshot) -> None:
     tone = _tone(snap)
     _, worry_label = _worry(snap)
-    switch = "开着 · 真钱通道已打开" if snap.trading_enabled else "关闭 · 不会真钱下单"
-    st.markdown(
-        f"""
+    with st.container(border=True):
+        st.markdown(
+            '<div class="q-block"><h3>① 今天安全吗</h3>'
+            '<p class="hint">先看真下单开关，再看有没有要留意的事。</p></div>',
+            unsafe_allow_html=True,
+        )
+        _render_kill_switch(snap)
+        st.markdown(
+            f"""
 <div class="ops-hero {tone}">
-  <div class="ops-kicker">现在安全吗</div>
+  <div class="ops-kicker">一句话结论</div>
   <h2>{worry_label}</h2>
   <p>{snap.alert}</p>
   <div class="ops-pill-row">
-    <span class="ops-pill">真下单：{switch}</span>
     <span class="ops-pill">{_env_label(snap.futu_env)}</span>
-    <span class="ops-pill">资金 ${snap.total_capital:,.0f}</span>
-    <span class="ops-pill">连接：{"正常" if snap.opend_reachable else "未连上"}</span>
+    <span class="ops-pill">配置资金 ${snap.total_capital:,.0f}</span>
+    <span class="ops-pill">练兵 {snap.counting_streak}/{snap.required_n} 天</span>
   </div>
 </div>
 """,
-        unsafe_allow_html=True,
-    )
+            unsafe_allow_html=True,
+        )
 
 
-def _render_drill(snap: OpsSnapshot) -> None:
-    ratio = 0.0
-    if snap.required_n > 0:
-        ratio = min(1.0, max(0.0, snap.counting_streak / snap.required_n))
+def _render_q_pnl(snap: OpsSnapshot) -> None:
     with st.container(border=True):
-        st.markdown("**练兵进度**")
-        st.caption("连续合格模拟日越多，越接近可以讨论真钱。")
-        c1, c2 = st.columns([1.2, 1])
-        with c1:
-            st.metric("已完成", f"{snap.counting_streak} / {snap.required_n} 天")
-            st.progress(ratio, text=f"完成度 {ratio:.0%}")
-        with c2:
-            st.metric("结果", _promo_label(snap.promotion_verdict))
-            if snap.promotion_verdict == "PASS":
-                st.caption("门槛已够。下一步仍要人工决定，网页不会自动开真下单。")
-            else:
-                remain = max(0, snap.required_n - snap.counting_streak)
-                st.caption(f"大约还差 {remain} 个合格日。继续练即可。")
-
-        cal = snap.promotion_calendar or []
-        if cal:
-            st.caption("最近练兵日历（绿=计入 · 红=不计入）")
-            chips = []
-            for row in cal[-14:]:
-                ok = bool(row.get("counts_for_promotion"))
-                day = str(row.get("date") or "")[-5:] or "?"
-                title = row.get("excluded_reason_zh") or "计入练兵"
-                cls = "ok" if ok else "bad"
-                chips.append(
-                    f'<span class="cal-chip {cls}" title="{title}">{day}</span>'
-                )
-            st.markdown("".join(chips), unsafe_allow_html=True)
-            with st.expander("日历明细表"):
-                table = [
-                    {
-                        "日期": r.get("date"),
-                        "计入": "是" if r.get("counts_for_promotion") else "否",
-                        "原因": r.get("excluded_reason_zh") or "—",
-                        "当日赚亏": format_money(
-                            float(r["pnl_total"]) if r.get("pnl_total") is not None else None
-                        ),
-                        "停手": r.get("halt_count", 0),
-                    }
-                    for r in reversed(cal)
-                ]
-                st.dataframe(table, use_container_width=True, hide_index=True)
-
-
-def _render_lanes(snap: OpsSnapshot) -> None:
-    a_sum: dict[str, Any] = snap.lane_a_summary or {}
-    b_sum: dict[str, Any] = snap.lane_b_summary or {}
-    with st.container(border=True):
-        st.markdown("**两条路线现在在干嘛**")
-        st.caption("看人话状态就好；标的与成交次数来自最新日报。")
-        a, b = st.columns(2)
-        with a:
-            a_meta = []
-            if a_sum.get("symbol"):
-                a_meta.append(f"标的 {a_sum['symbol']}")
-            a_meta.append(f"成交 {int(a_sum.get('fills_count') or 0)} 笔")
-            if a_sum.get("halt_reason_zh"):
-                a_meta.append(f"停手：{a_sum['halt_reason_zh']}")
-            st.markdown(
-                f"""
-<div class="lane-card {_lane_tone(snap.lane_a_state)}">
-  <p class="label">路线 A · 趋势</p>
-  <p class="value">{snap.lane_a_label}</p>
-  <p class="meta">{" · ".join(a_meta)}</p>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-        with b:
-            b_meta = []
-            if b_sum.get("prefer_symbol"):
-                b_meta.append(f"关注 {b_sum['prefer_symbol']}")
-            if b_sum.get("day_mode_zh"):
-                b_meta.append(str(b_sum["day_mode_zh"]))
-            b_meta.append(f"成交 {int(b_sum.get('fills_count') or 0)} 笔")
-            if b_sum.get("halt_reason_zh"):
-                b_meta.append(f"停手：{b_sum['halt_reason_zh']}")
-            st.markdown(
-                f"""
-<div class="lane-card {_lane_tone(snap.lane_b_state)}">
-  <p class="label">路线 B · 财报期权</p>
-  <p class="value">{snap.lane_b_label}</p>
-  <p class="meta">{" · ".join(b_meta)}</p>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-
-def _render_pnl(snap: OpsSnapshot) -> None:
-    with st.container(border=True):
-        st.markdown("**最近一天赚亏**")
-        st.caption("先看合计，再看趋势。正数是赚，负数是亏。")
+        st.markdown(
+            '<div class="q-block"><h3>② 赚亏多少</h3>'
+            '<p class="hint">最近一个交易日的合计；正数是赚，负数是亏。</p></div>',
+            unsafe_allow_html=True,
+        )
         if not snap.last_session_date:
             st.info("暂无日报。跑完模拟日后会自动出现。")
             return
@@ -472,35 +473,157 @@ def _render_pnl(snap: OpsSnapshot) -> None:
         p2.metric("路线 B", format_money(snap.last_pnl_b))
         p3.metric("停手次数", str(snap.last_halts))
 
-        points = snap.pnl_points or []
-        if len(points) >= 2:
-            st.caption("最近赚亏趋势（合计）")
-            chart_data = {
-                str(p.get("date") or f"#{i}"): float(p.get("pnl_total") or 0.0)
-                for i, p in enumerate(points)
-            }
-            st.line_chart(chart_data, height=180)
+
+def _render_q_holdings(snap: OpsSnapshot) -> None:
+    with st.container(border=True):
+        st.markdown(
+            '<div class="q-block"><h3>③ 持仓是什么</h3>'
+            '<p class="hint">用大白话说现在手里有没有仓、盯着什么标的。</p></div>',
+            unsafe_allow_html=True,
+        )
+        if not snap.last_session_date and snap.data_mode == "empty":
+            st.info("还没有持仓可读。等日报出来后再看这里。")
+            return
+        for cls, text in _holding_rows(snap):
+            st.markdown(
+                f'<div class="hold-line {cls}">{text}</div>',
+                unsafe_allow_html=True,
+            )
+        st.caption(_fills_summary(snap))
+
+
+def _render_lanes(snap: OpsSnapshot) -> None:
+    a_sum: dict[str, Any] = snap.lane_a_summary or {}
+    b_sum: dict[str, Any] = snap.lane_b_summary or {}
+    st.markdown("**双路人话状态**")
+    st.caption("状态用人话；标的与成交次数来自最新日报。")
+    a, b = st.columns(2)
+    with a:
+        a_meta = []
+        if a_sum.get("symbol"):
+            a_meta.append(f"标的 {a_sum['symbol']}")
+        a_meta.append(f"成交 {int(a_sum.get('fills_count') or 0)} 笔")
+        if a_sum.get("halt_reason_zh"):
+            a_meta.append(f"停手：{a_sum['halt_reason_zh']}")
+        st.markdown(
+            f"""
+<div class="lane-card {_lane_tone(snap.lane_a_state)}">
+  <p class="label">路线 A · 趋势</p>
+  <p class="value">{snap.lane_a_label}</p>
+  <p class="meta">{" · ".join(a_meta)}</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with b:
+        b_meta = []
+        if b_sum.get("prefer_symbol"):
+            b_meta.append(f"关注 {b_sum['prefer_symbol']}")
+        if b_sum.get("day_mode_zh"):
+            b_meta.append(str(b_sum["day_mode_zh"]))
+        b_meta.append(f"成交 {int(b_sum.get('fills_count') or 0)} 笔")
+        if b_sum.get("halt_reason_zh"):
+            b_meta.append(f"停手：{b_sum['halt_reason_zh']}")
+        st.markdown(
+            f"""
+<div class="lane-card {_lane_tone(snap.lane_b_state)}">
+  <p class="label">路线 B · 财报期权</p>
+  <p class="value">{snap.lane_b_label}</p>
+  <p class="meta">{" · ".join(b_meta)}</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
+
+def _render_pnl_curve(snap: OpsSnapshot) -> None:
+    st.markdown("**盈亏曲线**")
+    points = snap.pnl_points or []
+    if len(points) < 2:
+        st.caption("天数还不够画趋势线。至少两天日报后会出现。")
+        return
+    st.caption("最近赚亏趋势（合计，按交易日）")
+    chart_data = {
+        str(p.get("date") or f"#{i}"): float(p.get("pnl_total") or 0.0)
+        for i, p in enumerate(points)
+    }
+    st.line_chart(chart_data, height=200)
+
+
+def _render_fills_block(snap: OpsSnapshot) -> None:
+    st.markdown("**成交摘要**")
+    st.write(_fills_summary(snap))
+    a = int((snap.lane_a_summary or {}).get("fills_count") or 0)
+    b = int((snap.lane_b_summary or {}).get("fills_count") or 0)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("合计成交", f"{a + b} 笔")
+    c2.metric("路线 A", f"{a} 笔")
+    c3.metric("路线 B", f"{b} 笔")
+
+
+def _render_drill(snap: OpsSnapshot) -> None:
+    ratio = 0.0
+    if snap.required_n > 0:
+        ratio = min(1.0, max(0.0, snap.counting_streak / snap.required_n))
+    st.markdown("**练兵进度**")
+    st.caption("连续合格模拟日越多，越接近可以讨论真钱。网页不会自动开真下单。")
+    c1, c2 = st.columns([1.2, 1])
+    with c1:
+        st.metric("已完成", f"{snap.counting_streak} / {snap.required_n} 天")
+        st.progress(ratio, text=f"完成度 {ratio:.0%}")
+    with c2:
+        st.metric("结果", _promo_label(snap.promotion_verdict))
+        if snap.promotion_verdict == "PASS":
+            st.caption("门槛已够。下一步仍要人工决定。")
+        else:
+            remain = max(0, snap.required_n - snap.counting_streak)
+            st.caption(f"大约还差 {remain} 个合格日。")
+
+    cal = snap.promotion_calendar or []
+    if cal:
+        st.caption("最近练兵日历（绿=计入 · 红=不计入）")
+        chips = []
+        for row in cal[-14:]:
+            ok = bool(row.get("counts_for_promotion"))
+            day = str(row.get("date") or "")[-5:] or "?"
+            title = row.get("excluded_reason_zh") or "计入练兵"
+            cls = "ok" if ok else "bad"
+            chips.append(f'<span class="cal-chip {cls}" title="{title}">{day}</span>')
+        st.markdown("".join(chips), unsafe_allow_html=True)
 
 
 def _render_events(snap: OpsSnapshot) -> None:
     events = snap.events or []
-    with st.container(border=True):
-        st.markdown("**最近异常 / 停手**")
-        if not events:
-            st.caption("最近一日没有停手或断连记录。")
-            return
-        st.caption("用人话说明「为什么停」，不用翻日志。")
-        for ev in events[:12]:
-            sev = str(ev.get("severity") or "info")
-            cls = sev if sev in {"critical", "warning"} else ""
-            lane = ev.get("lane") or "?"
-            reason = ev.get("reason_zh") or "—"
-            when = ev.get("time") or ""
-            st.markdown(
-                f'<div class="event-row {cls}"><strong>{lane}</strong> · {reason}'
-                f'<br/><span style="color:#6a7a86;font-size:0.8rem">{when}</span></div>',
-                unsafe_allow_html=True,
-            )
+    st.markdown("**最近异常 / 停手**")
+    if not events:
+        st.caption("最近一日没有停手或断连记录。")
+        return
+    st.caption("用人话说明「为什么停」，不用翻日志。")
+    for ev in events[:12]:
+        sev = str(ev.get("severity") or "info")
+        cls = sev if sev in {"critical", "warning"} else ""
+        lane = ev.get("lane") or "?"
+        reason = ev.get("reason_zh") or "—"
+        when = ev.get("time") or ""
+        st.markdown(
+            f'<div class="event-row {cls}"><strong>{lane}</strong> · {reason}'
+            f'<br/><span style="color:#6a7a86;font-size:0.8rem">{when}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_secondary(snap: OpsSnapshot) -> None:
+    with st.expander("二级详情：双路状态 · 盈亏曲线 · 成交摘要 · 练兵", expanded=False):
+        _render_lanes(snap)
+        st.divider()
+        _render_pnl_curve(snap)
+        st.divider()
+        _render_fills_block(snap)
+        st.divider()
+        _render_drill(snap)
+        if snap.events:
+            st.divider()
+            _render_events(snap)
 
 
 def _render_ops_home() -> None:
@@ -510,7 +633,7 @@ def _render_ops_home() -> None:
     head_l, head_r = st.columns([3.2, 1])
     with head_l:
         st.markdown("### 交易指挥室")
-        st.caption("给非技术同学：一眼看懂安不安全、练到哪、最近赚亏。")
+        st.caption("首页三问：今天安全吗 · 赚亏多少 · 持仓是什么。")
     with head_r:
         if st.button("刷新概况", use_container_width=True, help="重新读取最新日报与配置"):
             st.session_state["ops_refreshed_at"] = time.time()
@@ -522,50 +645,26 @@ def _render_ops_home() -> None:
             st.caption("点一下可刷新")
 
     if snap.data_mode == "demo_fixtures":
-        st.warning("当前是**演示数据**（示例练兵），不是实盘实况。")
+        st.warning("当前是**演示数据**（示例练兵），不是实盘实况。接上真实日报后会自动换成实况。")
     elif snap.data_mode == "live_virtual":
         mode = snap.opend_mode or "未知"
         st.success(f"当前是**本机虚拟盘同步实况**（连接标记：`{mode}`）。")
     elif snap.data_mode == "empty":
         st.info("还没有可读的日报。跑完模拟交易日后会自动显示。")
 
-    focus = st.radio(
-        "我现在想看",
-        options=["一眼总览", "练兵进度", "最近赚亏", "异常事件"],
-        horizontal=True,
-        help="切到你最关心的一块；总览会把关键信息都排好。",
-        key="ops_focus",
-    )
-
-    _render_hero(snap)
+    _render_q_safe(snap)
     _render_freshness(snap)
-
-    if focus == "一眼总览":
-        _render_drill(snap)
-        _render_lanes(snap)
-        _render_pnl(snap)
-        if snap.events:
-            _render_events(snap)
-    elif focus == "练兵进度":
-        _render_drill(snap)
-        with st.expander("顺带看一眼两条路线"):
-            _render_lanes(snap)
-    elif focus == "最近赚亏":
-        _render_pnl(snap)
-        with st.expander("顺带看一眼练兵进度"):
-            _render_drill(snap)
-    else:
-        _render_events(snap)
-        with st.expander("顺带看一眼路线状态"):
-            _render_lanes(snap)
+    _render_q_pnl(snap)
+    _render_q_holdings(snap)
+    _render_secondary(snap)
 
     with st.expander("这是什么意思？常见问题"):
         st.markdown(
             """
 - **真下单总开关**：关着就不会真钱下单。这个网页**不能**把它打开。
-- **数据新鲜度**：告诉你日报是不是同步成功、会不会过期。
-- **练兵日历**：绿色计入、红色不计入（例如假成交回退）。
-- **异常事件**：停手 / 断连的人话原因。
+- **今天安全吗**：一眼结论 + 有没有要留意的事。
+- **赚亏多少**：最近一个交易日两条路线合计。
+- **持仓是什么**：有没有仓、盯着什么标的（来自最新日报状态）。
 - **演示数据**：样例；接上真实日报后会换成实况。
 """
         )
