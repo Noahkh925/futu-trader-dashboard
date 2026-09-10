@@ -1,0 +1,61 @@
+total_capital: 5000
+lane_a_ratio: 0.70
+lane_b_ratio: 0.30
+trading_enabled: false
+allow_production_live: false
+experiment_id: baseline
+costs:
+  commission_per_share: 0.0
+  commission_per_contract: 0.0
+  option_half_spread_bps: 0.0
+promotion:
+  n_days: 20
+  max_halts_per_day: 2
+futu:
+  host: 127.0.0.1
+  port: 11111
+  env: staging
+
+lane_a:
+  symbol: US.QQQ
+  orb:
+    window_minutes: 15
+    breakout_buffer_pct: 0.0
+  vwap:
+    require_above_for_long: true
+    require_below_for_short: true
+  regime:
+    enabled: false
+    min_or_range_pct: 0.001
+  risk:
+    max_loss_per_trade_pct: 0.01
+    max_daily_loss_pct: 0.03
+    max_position_pct: 0.25
+    allow_add_to_position: false
+  paper:
+    mode: mock_fill
+    fill_slippage_bps: 0.0
+
+lane_b:
+  horizon_days: 14
+  deploy_window_days: 3
+  cooldown_days: 2
+  max_notional_pct: 0.25
+  max_event_loss: 150
+  daily_loss_limit: 200
+  structure: straddle
+  strangle_otm_pct: 0.05
+  strike_step: 0.0
+  min_price: 5.0
+  min_avg_volume: 0
+  require_us: true
+  require_options_tradable: true
+  analyst_watchlist_path: null
+  calendar:
+    source: fixture
+    fixture_path: fixtures/earnings_calendar.json
+  option_chain:
+    source: fixture
+    fixture_path: fixtures/option_chains.json
+  paper:
+    mode: mock_fill
