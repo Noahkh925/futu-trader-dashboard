@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from core.portfolio import PortfolioConfig, load_portfolio_config
 from research.promotion import DayVerdict, check_promotion, discover_reports, evaluate_day
@@ -86,6 +87,8 @@ EXCLUDED_REASON_ZH: dict[str, str] = {
 SyncStatus = Literal["ok", "stale", "failed", "empty"]
 SYNC_META_NAME = ".sync_meta.json"
 HEARTBEAT_NAME = "heartbeat.json"
+# Display-only timezone for Noah (storage / cron stay UTC or America/New_York).
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 DEFAULT_CALENDAR_DAYS = 20
 DEFAULT_PNL_DAYS = 20
 STALE_AFTER_DAYS = 3
@@ -564,16 +567,8 @@ def human_fill_side(side: str | None) -> str | None:
 
 
 def _short_clock_zh(ts: str | None) -> str:
-    """Extract HH:MM from ISO timestamp for activity / fills."""
-    if not ts:
-        return ""
-    text = str(ts).strip()
-    if "T" in text:
-        clock = text.split("T", 1)[1]
-        return clock[:5] if len(clock) >= 5 else clock
-    if len(text) >= 16 and text[10] == " ":
-        return text[11:16]
-    return text[-5:] if len(text) >= 5 else text
+    """HH:MM in Beijing time for activity / fills (display only)."""
+    return format_clock_hhmm_zh(ts)
 
 
 def _normalize_fill(
@@ -1306,16 +1301,37 @@ def page_refresh_seconds() -> int:
 
 
 def format_last_updated_zh(iso_or_epoch: str | float | None) -> str:
+    """Format a timestamp for the board in Beijing time (display only)."""
     if iso_or_epoch is None:
         return "—"
     if isinstance(iso_or_epoch, (int, float)):
         dt = datetime.fromtimestamp(float(iso_or_epoch), tz=timezone.utc)
     else:
-        dt = _parse_iso_dt(str(iso_or_epoch))
+        raw = str(iso_or_epoch).strip()
+        # Date-only (session day) is a calendar label, not a clock — leave as-is.
+        if len(raw) == 10 and raw[4:5] == "-" and raw[7:8] == "-":
+            return raw
+        dt = _parse_iso_dt(raw)
         if dt is None:
-            return str(iso_or_epoch)
-    local = dt.astimezone()
-    return local.strftime("%Y-%m-%d %H:%M:%S %Z")
+            return raw
+    beijing = dt.astimezone(BEIJING_TZ)
+    return beijing.strftime("%Y-%m-%d %H:%M:%S") + " 北京时间"
+
+
+def format_clock_hhmm_zh(iso_or_epoch: str | float | None) -> str:
+    """HH:MM in Beijing time for activity / caption clocks."""
+    if iso_or_epoch is None:
+        return ""
+    if isinstance(iso_or_epoch, (int, float)):
+        dt = datetime.fromtimestamp(float(iso_or_epoch), tz=timezone.utc)
+    else:
+        raw = str(iso_or_epoch).strip()
+        if len(raw) == 10 and raw[4:5] == "-" and raw[7:8] == "-":
+            return ""
+        dt = _parse_iso_dt(raw)
+        if dt is None:
+            return ""
+    return dt.astimezone(BEIJING_TZ).strftime("%H:%M")
 
 
 def _maybe_mark_stale_by_hourly(
@@ -1334,7 +1350,8 @@ def _maybe_mark_stale_by_hourly(
     if age_h > HOURLY_STALE_AFTER_HOURS:
         return (
             "stale",
-            f"小时心跳已超过 {HOURLY_STALE_AFTER_HOURS} 小时（{heartbeat.get('generated_at')}），"
+            f"小时心跳已超过 {HOURLY_STALE_AFTER_HOURS} 小时"
+            f"（{format_last_updated_zh(heartbeat.get('generated_at'))}），"
             "快照可能不是最新实况",
         )
     return status, None

@@ -633,8 +633,8 @@ def _render_freshness(snap: OpsSnapshot) -> None:
     status = snap.sync_status or "empty"
     cls = status if status in {"ok", "stale", "failed", "empty"} else "watch"
     status_zh = SYNC_STATUS_ZH.get(status, status)
-    as_of = snap.data_as_of or "未知"
-    synced = snap.synced_at or "—"
+    as_of = format_last_updated_zh(snap.data_as_of) if snap.data_as_of else "未知"
+    synced = format_last_updated_zh(snap.synced_at) if snap.synced_at else "—"
     bits = [
         "<strong>数据新鲜度</strong>",
         f"状态 {html.escape(status_zh)}",
@@ -650,7 +650,10 @@ def _render_freshness(snap: OpsSnapshot) -> None:
         hb_reach_zh = (
             "可达" if hb_reach is True else "不可达" if hb_reach is False else "—"
         )
-        hb_bits = f"小时心跳 {html.escape(str(snap.hourly_as_of))}（本机 OpenD {hb_reach_zh}"
+        hb_bits = (
+            f"小时心跳 {html.escape(format_last_updated_zh(snap.hourly_as_of))}"
+            f"（本机 OpenD {hb_reach_zh}"
+        )
         if snap.hourly_quote_source:
             hb_bits += f" · 报价 {html.escape(str(snap.hourly_quote_source))}"
         hb_bits += "）"
@@ -1129,7 +1132,7 @@ def _render_ops_home() -> bool:
         st.write(f"健康提示：{snap.health_hint_zh}")
         st.write(f"持仓条数：{len(snap.positions or [])}")
         st.write(f"成交明细条数：{len(snap.fills or [])}")
-        st.write(f"小时心跳：`{snap.hourly_as_of or '—'}`")
+        st.write(f"小时心跳：`{format_last_updated_zh(snap.hourly_as_of) if snap.hourly_as_of else '—'}`")
         st.code(snap.reports_dir)
         st.caption("稳定 JSON 出口：`python -m dashboard.ops_export`")
         st.caption(
@@ -1252,7 +1255,7 @@ def _render_agents(state: DashboardState) -> None:
             st.markdown(f"**{agent.label}** · {status}")
             st.caption(agent.role)
             if agent.last_seen:
-                st.caption(f"最后：{time.strftime('%H:%M:%S', time.localtime(agent.last_seen))}")
+                st.caption(f"最后：{format_last_updated_zh(agent.last_seen)}")
             if not _readonly() and st.button("Ping", key=f"ping_{agent_id}"):
                 state.ping_agent(agent_id)
                 st.rerun()
