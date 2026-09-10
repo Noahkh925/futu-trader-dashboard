@@ -25,6 +25,7 @@ dashboard = [
 
 [project.scripts]
 futu-dashboard = "dashboard.app:main"
+futu-ops-export = "dashboard.ops_export:main"
 futu-paper-day = "paper.session:main"
 futu-paper-lane-b = "paper.lane_b_session:main"
 futu-staging-day = "staging.harness:main"
