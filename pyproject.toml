@@ -12,6 +12,7 @@ license = { text = "Proprietary" }
 dependencies = [
     "pyyaml>=6.0",
     "redis>=5.0",
+    "tzdata>=2024.1; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
