@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "session_date": "2026-09-09",
+  "generated_at": "2026-09-10T09:20:09.136625+00:00",
+  "opend_mode": "opend",
+  "futu_env": "staging",
+  "capital": {
+    "total": 5000.0,
+    "lane_a_start": 3500.0,
+    "lane_b_start": 1500.0,
+    "lane_a_end": 3500.0,
+    "lane_b_end": 1500.0,
+    "lane_a_pnl": 0.0,
+    "lane_b_pnl": 0.0
+  },
+  "lane_a": {
+    "state": "LOCKED",
+    "halt_reason": null,
+    "bars_seen": 390,
+    "fills_count": 1,
+    "signals_count": 390,
+    "realized_pnl": 0.0,
+    "paper_mode": "opend_sim",
+    "symbol": "US.QQQ"
+  },
+  "lane_b": {
+    "state": "SCOUT",
+    "halt_reason": null,
+    "day_mode": "scout_only",
+    "fills_count": 0,
+    "scout_hits": 2,
+    "realized_pnl": 0.0,
+    "paper_mode": "opend_sim",
+    "prefer_symbol": "US.AAPL"
+  },
+  "halts": [],
+  "disconnects": [
+    {
+      "lane": "feed",
+      "detected": false,
+      "detail": "OpenD quote ok source=futu last=716.31",
+      "opend_mode": "opend"
+    }
+  ],
+  "errors": [],
+  "fills_summary": {
+    "lane_a": 1,
+    "lane_b": 0,
+    "total": 1
+  },
+  "artifact_paths": {
+    "daily_report": "logs\\staging\\2026-09-09\\daily_report.json",
+    "lane_a_log": "logs\\staging\\2026-09-09\\lane_a.jsonl",
+    "lane_b_log": "logs\\staging\\2026-09-09\\lane_b.jsonl"
+  },
+  "experiment_id": "baseline",
+  "costs": {
+    "commission_per_share": 0.0,
+    "commission_per_contract": 0.0,
+    "option_half_spread_bps": 0.0
+  },
+  "counts_for_promotion": true
+}
