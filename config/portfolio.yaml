@@ -33,7 +33,8 @@ lane_a:
     max_position_pct: 0.25
     allow_add_to_position: false
   paper:
-    mode: mock_fill
+    # opend_sim: OpenD virtual/sim account when available; falls back with report flag
+    mode: opend_sim
     fill_slippage_bps: 0.0
 
 lane_b:
@@ -58,4 +59,4 @@ lane_b:
     source: fixture
     fixture_path: fixtures/option_chains.json
   paper:
-    mode: mock_fill
+    mode: opend_sim
