@@ -644,14 +644,13 @@ def _require_password() -> bool:
 
     st.markdown(_THEME_CSS, unsafe_allow_html=True)
     st.markdown(
-        '<div class="ops-gate"><h1>交易指挥室</h1>'
-        "<p>输入密码后查看运营概况。</p>"
-        "<p>这个页面不会改真下单开关。</p></div>",
+        '<div class="ops-gate"><h1>虚拟盘投资看板</h1>'
+        "<p>输入密码后查看账户概况。此页只读，不会改真下单开关。</p></div>",
         unsafe_allow_html=True,
     )
     with st.form("gate", clear_on_submit=False):
         password = st.text_input("访问密码", type="password", placeholder="请输入密码")
-        submitted = st.form_submit_button("进入指挥室", use_container_width=True, type="primary")
+        submitted = st.form_submit_button("进入看板", use_container_width=True, type="primary")
         if submitted:
             if password == expected:
                 st.session_state.dashboard_authed = True
@@ -751,7 +750,7 @@ def _render_activity(snap: OpsSnapshot) -> None:
     last_upd = format_last_updated_zh(raw_upd) if raw_upd else "—"
     if not items:
         st.markdown(
-            f'<div class="activity-bar"><div class="title">今日活动</div>'
+            f'<div class="activity-bar"><div class="title">最近在干什么</div>'
             f'<p style="margin:0;color:#5b6b76;font-size:0.9rem">'
             f"暂无活动记录。最后更新于 {html.escape(str(last_upd))}</p></div>",
             unsafe_allow_html=True,
@@ -767,7 +766,7 @@ def _render_activity(snap: OpsSnapshot) -> None:
         )
         lis.append(f"<li>{when_html}{text}</li>")
     st.markdown(
-        f'<div class="activity-bar"><div class="title">今日活动 · 系统在干活</div>'
+        f'<div class="activity-bar"><div class="title">最近在干什么</div>'
         f"<ul>{''.join(lis)}</ul>"
         f'<div class="last-upd">最后更新于 {html.escape(str(last_upd))}</div></div>',
         unsafe_allow_html=True,
@@ -779,53 +778,32 @@ def _render_freshness(snap: OpsSnapshot) -> None:
     cls = status if status in {"ok", "stale", "failed", "empty"} else "watch"
     status_zh = SYNC_STATUS_ZH.get(status, status)
     as_of = format_last_updated_zh(snap.data_as_of) if snap.data_as_of else "未知"
-    synced = format_last_updated_zh(snap.synced_at) if snap.synced_at else "—"
     bits = [
-        "<strong>数据新鲜度</strong>",
+        "<strong>数据是否最新</strong>",
         f"状态 {html.escape(status_zh)}",
         f"截至 {html.escape(str(as_of))}",
-        f"同步 {html.escape(str(synced))}",
     ]
     if snap.hosting_mode == "cloud":
-        bits.append("托管 云端（不直连本机 OpenD）")
-    else:
-        bits.append(f"本机 OpenD {'可达' if snap.opend_reachable else '未连上'}")
-    if snap.hourly_as_of:
-        hb_reach = snap.hourly_opend_reachable
-        hb_reach_zh = (
-            "可达" if hb_reach is True else "不可达" if hb_reach is False else "—"
-        )
-        hb_bits = (
-            f"小时心跳 {html.escape(format_last_updated_zh(snap.hourly_as_of))}"
-            f"（本机 OpenD {hb_reach_zh}"
-        )
-        if snap.hourly_quote_source:
-            hb_bits += f" · 报价 {html.escape(str(snap.hourly_quote_source))}"
-        hb_bits += "）"
-        bits.append(hb_bits)
+        bits.append("云端只读快照")
+    elif snap.synced_at:
+        bits.append(f"同步 {html.escape(format_last_updated_zh(snap.synced_at))}")
     if snap.sync_error:
         bits.append(html.escape(str(snap.sync_error)))
-    elif snap.health_hint_zh:
+    elif snap.health_hint_zh and status in {"failed", "stale", "empty"}:
         bits.append(html.escape(str(snap.health_hint_zh)))
     st.markdown(
         f'<div class="fresh-bar {cls}">{" · ".join(bits)}</div>',
         unsafe_allow_html=True,
     )
     if status == "empty":
-        st.info(
-            "下一步：本机跑无人值守日跑（`futu-unattended-day` 或 "
-            "`scripts/run_unattended_day.ps1`），再按需同步到云端。"
-        )
+        st.info("还没有可读的日报。等同步上来后再看这里。")
     elif status == "failed":
         st.warning(
-            "同步失败时云端会一直显示旧快照或演示数据。"
-            "请检查 `REPORTS_REMOTE_BASE` / 本机 `sync_reports_to_cloud.py --push`。"
+            "同步失败时页面可能仍显示旧数据或演示数据。"
+            "可在下方「这是什么意思？」了解含义；需要处理时请联系发密码给你的人。"
         )
     elif status == "stale" and snap.hosting_mode == "cloud":
-        st.caption(
-            "「截至时间旧」表示快照过期，不是「云端连不上你电脑上的 OpenD」。"
-            "请在本机跑小时心跳或日跑后同步。"
-        )
+        st.caption("「截至时间旧」表示快照可能过期，不是网页坏了。")
 
 
 def _render_q_safe(snap: OpsSnapshot) -> None:
@@ -833,7 +811,7 @@ def _render_q_safe(snap: OpsSnapshot) -> None:
     _, worry_label = _worry(snap)
     with st.container(border=True):
         st.markdown(
-            '<div class="q-block"><h3>① 今天安全吗</h3>'
+            '<div class="q-block"><h3>今天安全吗</h3>'
             '<p class="hint">先看真下单开关，再看有没有要留意的事。</p></div>',
             unsafe_allow_html=True,
         )
@@ -913,20 +891,14 @@ def _render_premarket(snap: OpsSnapshot) -> None:
         chips.append(f"美东交易日 {html.escape(str(pm['as_of']))}")
     if pm.get("generated_at_zh"):
         chips.append(f"生成 {html.escape(str(pm['generated_at_zh']))}")
-    if pm.get("schema_version"):
-        chips.append(f"规则 {html.escape(str(pm['schema_version']))}")
-    if pm.get("experiment_id"):
-        chips.append(f"实验 {html.escape(str(pm['experiment_id']))}")
-    if pm.get("generated_by"):
-        chips.append(f"来源 {html.escape(str(pm['generated_by']))}")
     if pm.get("data_label") == "demo_fixtures":
         chips.append("演示数据")
     chip_html = "".join(f'<span class="pm-chip">{c}</span>' for c in chips)
 
     body_parts: list[str] = [
         f'<div class="pm-panel {panel_cls}">',
-        '<div class="pm-kicker">今日盘前决策 · Lane A 技术面</div>',
-        f"<h3>{html.escape(str(pm.get('headline_zh') or '今日盘前决策'))}</h3>",
+        '<div class="pm-kicker">今天选了谁 · 趋势路线 · 盘前名单</div>',
+        f"<h3>{html.escape(str(pm.get('headline_zh') or '今天选了谁'))}</h3>",
         f'<p class="pm-meta">{html.escape(str(pm.get("detail_zh") or ""))}</p>',
     ]
     if chip_html:
@@ -944,7 +916,7 @@ def _render_premarket(snap: OpsSnapshot) -> None:
             for row in vetoed:
                 body_parts.append(_pm_name_card(row, veto=True))
     elif status == "empty_universe":
-        reason = pm.get("no_trade_reason_zh") or "今日 Lane A 不交易（no_trade_day）"
+        reason = pm.get("no_trade_reason_zh") or "今天按规则不交易"
         body_parts.append(
             f'<div class="hold-line empty">{html.escape(str(reason))}</div>'
         )
@@ -965,7 +937,7 @@ def _render_premarket(snap: OpsSnapshot) -> None:
         )
 
     foot = pm.get("footnote_zh") or (
-        "名单 ≠ 下单指令。入场仍由 ORB+VWAP；真下单默认关闭；NFA。"
+        "名单不是下单指令。入场仍按既定规则；真下单默认关闭；仅供参考。"
     )
     body_parts.append(f'<div class="pm-foot">{html.escape(str(foot))}</div>')
     body_parts.append("</div>")
@@ -975,7 +947,7 @@ def _render_premarket(snap: OpsSnapshot) -> None:
 def _render_q_pnl(snap: OpsSnapshot) -> None:
     with st.container(border=True):
         st.markdown(
-            '<div class="q-block"><h3>② 赚亏多少</h3>'
+            '<div class="q-block"><h3>最近一天赚亏多少</h3>'
             '<p class="hint">最近一个交易日的合计；正数是赚，负数是亏。</p></div>',
             unsafe_allow_html=True,
         )
@@ -999,7 +971,7 @@ def _render_q_pnl(snap: OpsSnapshot) -> None:
 def _render_q_holdings(snap: OpsSnapshot) -> None:
     with st.container(border=True):
         st.markdown(
-            '<div class="q-block"><h3>③ 持仓是什么</h3>'
+            '<div class="q-block"><h3>持仓是什么</h3>'
             '<p class="hint">标的、数量、均价、名义金额、浮动盈亏（有则显示）。</p></div>',
             unsafe_allow_html=True,
         )
@@ -1054,62 +1026,68 @@ def _render_q_holdings(snap: OpsSnapshot) -> None:
         st.caption(_fills_summary(snap))
 
 
-def _render_fills_detail(snap: OpsSnapshot) -> None:
-    """Primary trade detail — survives flat positions (closed fills still listed)."""
-    with st.container(border=True):
-        st.markdown(
-            '<div class="q-block"><h3>④ 成交明细</h3>'
-            '<p class="hint">最近一日逐笔：买/卖、数量、价格或名义、真模拟/假成交。'
-            "已平仓的成交也会留在这里。</p></div>",
-            unsafe_allow_html=True,
-        )
-        rows = _fill_table_rows(snap)
-        if not rows:
-            a = int((snap.lane_a_summary or {}).get("fills_count") or 0)
-            b = int((snap.lane_b_summary or {}).get("fills_count") or 0)
-            if a + b == 0:
-                st.markdown(
-                    '<div class="hold-line empty">今日尚无成交'
-                    "（B 无事件日 0 笔是正常的；看上方活动条确认系统跑过）。</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.info(
-                    f"日报写了成交 {a + b} 笔，但还没有逐笔明细。"
-                    "新日跑会把 fills 写进 daily_report；本机也可读 lane_*.jsonl。"
-                )
-            return
-        cells: list[str] = []
-        for row in rows:
-            cells.append(
-                "<tr>"
-                f"<td>{html.escape(row['路线'])}</td>"
-                f"<td>{html.escape(row['时间'])}</td>"
-                f"<td><strong>{html.escape(row['标的'])}</strong></td>"
-                f"<td>{html.escape(row['买/卖'])}</td>"
-                f"<td>{html.escape(row['数量'])}</td>"
-                f"<td>{html.escape(row['价格'])}</td>"
-                f"<td>{html.escape(row['名义'])}</td>"
-                f"<td>{html.escape(row['模式'])}</td>"
-                "</tr>"
+def _render_fills_detail(snap: OpsSnapshot, *, nested: bool = False) -> None:
+    """Trade detail — nested under「最近成交」so closed fills still surface."""
+    if not nested:
+        with st.container(border=True):
+            st.markdown(
+                '<div class="q-block"><h3>最近成交</h3>'
+                '<p class="hint">最近一日逐笔：买/卖、数量、价格或名义。'
+                "已平仓的成交也会留在这里。</p></div>",
+                unsafe_allow_html=True,
             )
-        st.markdown(
-            "<table class='hold-table'>"
-            "<thead><tr>"
-            "<th>路线</th><th>时间</th><th>标的</th><th>买/卖</th>"
-            "<th>数量</th><th>价格</th><th>名义</th><th>模式</th>"
-            "</tr></thead>"
-            f"<tbody>{''.join(cells)}</tbody></table>",
-            unsafe_allow_html=True,
+            _render_fills_detail_body(snap)
+        return
+    _render_fills_detail_body(snap)
+
+
+def _render_fills_detail_body(snap: OpsSnapshot) -> None:
+    rows = _fill_table_rows(snap)
+    if not rows:
+        a = int((snap.lane_a_summary or {}).get("fills_count") or 0)
+        b = int((snap.lane_b_summary or {}).get("fills_count") or 0)
+        if a + b == 0:
+            st.markdown(
+                '<div class="hold-line empty">今日尚无成交'
+                "（无事件日 0 笔是正常的；可看上方「最近在干什么」确认有没有跑过）。</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info(
+                f"日报写了成交 {a + b} 笔，但还没有逐笔明细。"
+                "新的日报同步后会出现在这里。"
+            )
+        return
+    cells: list[str] = []
+    for row in rows:
+        cells.append(
+            "<tr>"
+            f"<td>{html.escape(row['路线'])}</td>"
+            f"<td>{html.escape(row['时间'])}</td>"
+            f"<td><strong>{html.escape(row['标的'])}</strong></td>"
+            f"<td>{html.escape(row['买/卖'])}</td>"
+            f"<td>{html.escape(row['数量'])}</td>"
+            f"<td>{html.escape(row['价格'])}</td>"
+            f"<td>{html.escape(row['名义'])}</td>"
+            f"<td>{html.escape(row['模式'])}</td>"
+            "</tr>"
         )
-        st.caption(_fills_summary(snap))
+    st.markdown(
+        "<table class='hold-table'>"
+        "<thead><tr>"
+        "<th>路线</th><th>时间</th><th>标的</th><th>买/卖</th>"
+        "<th>数量</th><th>价格</th><th>名义</th><th>模式</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(cells)}</tbody></table>",
+        unsafe_allow_html=True,
+    )
+    st.caption(_fills_summary(snap))
 
 
 def _render_lanes(snap: OpsSnapshot) -> None:
     a_sum: dict[str, Any] = snap.lane_a_summary or {}
     b_sum: dict[str, Any] = snap.lane_b_summary or {}
-    st.markdown("**双路人话状态**")
-    st.caption("一眼分清 A / B 今天各自怎样；标的与成交次数来自最新日报。")
+    st.caption("只显示人话状态；标的与成交次数来自最新日报。")
     a, b = st.columns(2)
     with a:
         a_meta = []
@@ -1121,7 +1099,7 @@ def _render_lanes(snap: OpsSnapshot) -> None:
         st.markdown(
             f"""
 <div class="lane-card {_lane_tone(snap.lane_a_state)}">
-  <p class="label">路线 A · 趋势（ORB+VWAP）</p>
+  <p class="label">路线 A · 趋势</p>
   <p class="value">{snap.lane_a_status_zh or snap.lane_a_label}</p>
   <p class="meta">{" · ".join(a_meta)}</p>
 </div>
@@ -1140,7 +1118,7 @@ def _render_lanes(snap: OpsSnapshot) -> None:
         st.markdown(
             f"""
 <div class="lane-card {_lane_tone(snap.lane_b_state)}">
-  <p class="label">路线 B · 财报期权</p>
+  <p class="label">路线 B · 财报</p>
   <p class="value">{snap.lane_b_status_zh or snap.lane_b_label}</p>
   <p class="meta">{" · ".join(b_meta)}</p>
 </div>
@@ -1150,7 +1128,6 @@ def _render_lanes(snap: OpsSnapshot) -> None:
 
 
 def _render_pnl_curve(snap: OpsSnapshot) -> None:
-    st.markdown("**盈亏曲线**")
     points = snap.pnl_points or []
     if len(points) < 2:
         st.caption("天数还不够画趋势线。至少两天日报后会出现。")
@@ -1164,7 +1141,6 @@ def _render_pnl_curve(snap: OpsSnapshot) -> None:
 
 
 def _render_fills_block(snap: OpsSnapshot) -> None:
-    st.markdown("**成交摘要**")
     st.write(_fills_summary(snap))
     a = int((snap.lane_a_summary or {}).get("fills_count") or 0)
     b = int((snap.lane_b_summary or {}).get("fills_count") or 0)
@@ -1172,15 +1148,14 @@ def _render_fills_block(snap: OpsSnapshot) -> None:
     c1.metric("合计成交", f"{a + b} 笔")
     c2.metric("路线 A", f"{a} 笔")
     c3.metric("路线 B", f"{b} 笔")
-    if snap.fills:
-        st.caption(f"首页「成交明细」已展开最近 {len(snap.fills)} 笔。")
+    with st.expander("成交明细", expanded=False):
+        _render_fills_detail(snap, nested=True)
 
 
 def _render_drill(snap: OpsSnapshot) -> None:
     ratio = 0.0
     if snap.required_n > 0:
         ratio = min(1.0, max(0.0, snap.counting_streak / snap.required_n))
-    st.markdown("**练兵进度**")
     st.caption("连续合格模拟日越多，越接近可以讨论真钱。网页不会自动开真下单。")
     c1, c2 = st.columns([1.2, 1])
     with c1:
@@ -1209,7 +1184,6 @@ def _render_drill(snap: OpsSnapshot) -> None:
 
 def _render_events(snap: OpsSnapshot) -> None:
     events = snap.events or []
-    st.markdown("**最近异常 / 停手**")
     if not events:
         st.caption("最近一日没有停手或断连记录。")
         return
@@ -1227,133 +1201,186 @@ def _render_events(snap: OpsSnapshot) -> None:
         )
 
 
-def _render_secondary(snap: OpsSnapshot) -> None:
+def _render_lane_a_tech_watchlist(snap: OpsSnapshot) -> None:
+    """Optional folded technical watchlist detail (not a primary path)."""
+    wl = snap.lane_a_tech_watchlist or {}
+    status = str(wl.get("status") or "missing")
+    with st.expander("名单细节", expanded=False):
+        st.caption("趋势路线盘前名单的补充细节；名单不是下单指令。")
+        if status in {"missing", "bad_schema", "no_trade_day"} or wl.get("no_trade_day"):
+            st.warning(str(wl.get("reason_zh") or "今天按规则不交易"))
+            if wl.get("error"):
+                st.caption(f"说明：{wl['error']}")
+        else:
+            st.success(str(wl.get("reason_zh") or "已加载盘前名单"))
+
+        meta_bits = []
+        if wl.get("as_of"):
+            meta_bits.append(f"美东交易日 {wl['as_of']}")
+        if meta_bits:
+            st.caption(" · ".join(meta_bits))
+
+        deployable = list(wl.get("deployable") or [])
+        vetoed = list(wl.get("vetoed") or [])
+        if deployable:
+            st.markdown("**可看的名单**")
+            for n in deployable:
+                st.markdown(f"**{n.get('symbol')}** · score {n.get('score')}")
+                with st.expander(f"{n.get('symbol')} 细节", expanded=False):
+                    st.write(
+                        {
+                            "sources": n.get("sources"),
+                            "reasons": n.get("reasons"),
+                            "min_price_ok": n.get("min_price_ok"),
+                            "adv_ok": n.get("adv_ok"),
+                            "avg_dollar_volume": n.get("avg_dollar_volume"),
+                            "avg_volume": n.get("avg_volume"),
+                            "regime_tag": n.get("regime_tag"),
+                        }
+                    )
+        if vetoed:
+            st.markdown("**已否决（审计）**")
+            vrows = []
+            for n in vetoed:
+                vrows.append(
+                    {
+                        "标的": n.get("symbol"),
+                        "score": n.get("score"),
+                        "否决理由": n.get("reason")
+                        or "; ".join(n.get("reasons") or []),
+                    }
+                )
+            st.dataframe(vrows, use_container_width=True, hide_index=True)
+
+        st.caption("今天按规则不交易时会在上方「今天选了谁」写明原因。")
+
+
+def _render_detail_sections(snap: OpsSnapshot) -> None:
+    """Independent folded blocks — replaces the old「二级详情」aggregator."""
     if snap.last_halts:
         st.warning(
             f"最近一日有 **{snap.last_halts}** 次停手记录——"
-            "可在下方「二级详情」展开查看原因。"
+            "可在下方「最近异常 / 停手」查看原因。"
         )
-    with st.expander("二级详情：盈亏曲线 · 成交摘要 · 练兵", expanded=False):
+
+    with st.expander("盈亏走势", expanded=False):
         _render_pnl_curve(snap)
-        st.divider()
+
+    with st.expander("最近成交", expanded=False):
         _render_fills_block(snap)
-        st.divider()
+
+    with st.expander("练兵进度", expanded=False):
         _render_drill(snap)
-        if snap.events:
-            st.divider()
+
+    if snap.last_halts or snap.events:
+        with st.expander("最近异常 / 停手", expanded=False):
             _render_events(snap)
 
 
-def _render_ops_home() -> bool:
-    """Render ops home. Returns whether browser auto-refresh is enabled."""
+def _data_one_liner(snap: OpsSnapshot) -> str:
+    as_of = format_last_updated_zh(snap.data_as_of) if snap.data_as_of else "—"
+    if snap.data_mode == "demo_fixtures":
+        return f"数据：演示数据（示例），不是真实日报（截至 {as_of}）"
+    if snap.hosting_mode == "cloud":
+        return f"数据：云端已同步的虚拟盘日报（截至 {as_of}）"
+    if snap.data_path_zh:
+        return f"数据：{snap.data_path_zh}"
+    return f"数据：虚拟盘日报（截至 {as_of}）"
+
+
+def _render_ops_home(*, readonly: bool = False) -> bool:
+    """Render investment ops home. Returns whether browser auto-refresh is enabled."""
     snap = build_ops_snapshot(CONFIG_PATH, probe_opend=True)
     st.markdown(_THEME_CSS, unsafe_allow_html=True)
 
     head_l, head_r = st.columns([3.2, 1])
     with head_l:
-        st.markdown("### 交易指挥室")
-        st.caption(
-            "首页：今天安全吗 · 盘前选了谁 · 赚亏多少 · 双路怎样 · 持仓 · 成交明细。"
-        )
+        st.markdown("### 虚拟盘投资看板")
     with head_r:
-        st.caption("只读 · 不能真下单")
+        st.caption("只读 · 不会真钱下单")
 
     auto = _render_ops_refresh_controls()
 
-    st.caption(snap.data_path_zh)
-    st.caption(
-        "数据链：本机 OpenD → 小时心跳/日报 →（本机直读或同步到云端）→ 本页展示。"
-        "云端不能直连你电脑上的 OpenD。"
-    )
+    st.caption(_data_one_liner(snap))
 
     if snap.data_mode == "demo_fixtures":
         st.warning(
-            "当前是**演示数据**（示例练兵），不是你的真日报。"
-            "接上真实日报目录或远程同步后会自动换成实况。"
+            "当前是演示数据（示例），不是你的真实日报。"
+            "接上真实日报后会自动换成实况。"
         )
     elif snap.data_mode == "live_virtual":
-        mode = snap.opend_mode or "未知"
         if snap.hosting_mode == "cloud":
-            st.success(
-                f"当前为**云端只读快照**（日报里的 OpenD 模式标记：`{mode}`）。"
-                "云端不探测、也连不上你电脑上的 OpenD。"
-            )
+            st.success("当前为云端只读快照（已同步的虚拟盘日报）。")
         else:
-            reachable = "可达" if snap.opend_reachable else "不可达"
-            st.success(
-                f"当前为**本机预览 · 虚拟盘实况**（OpenD 模式：`{mode}`，探测：{reachable}）。"
-            )
-        st.caption(snap.health_hint_zh)
+            st.success("当前为本机预览 · 虚拟盘实况。")
+        if snap.health_hint_zh and not readonly:
+            st.caption(snap.health_hint_zh)
     elif snap.data_mode == "empty":
-        st.info(
-            "还没有可读的日报。下一步：本机跑 "
-            "`futu-unattended-day` / `scripts/run_unattended_day.ps1`。"
-        )
+        st.info("还没有可读的日报。同步或跑完模拟日后会出现在这里。")
 
     _render_q_safe(snap)
     _render_premarket(snap)
+    _render_lane_a_tech_watchlist(snap)
     _render_freshness(snap)
     _render_activity(snap)
     _render_q_pnl(snap)
     with st.container(border=True):
         st.markdown(
             '<div class="q-block"><h3>双路今天怎样</h3>'
-            '<p class="hint">A 趋势 / B 财报，分列人话状态。</p></div>',
+            '<p class="hint">A 趋势 / B 财报，只显示人话状态。</p></div>',
             unsafe_allow_html=True,
         )
         _render_lanes(snap)
     _render_q_holdings(snap)
-    _render_fills_detail(snap)
-    _render_secondary(snap)
+    _render_detail_sections(snap)
 
-    with st.expander("这是什么意思？常见问题"):
+    with st.expander("这是什么意思？"):
         st.markdown(
             """
 - **真下单总开关**：关着就不会真钱下单。这个网页**不能**把它打开。
 - **今天安全吗**：一眼结论 + 有没有要留意的事。
-- **今日盘前决策**：今天技术面选了谁、得分与理由、谁被否决；空日/缺文件会写明「不交易」。
-- **赚亏多少**：最近一个交易日两条路线合计。
-- **双路怎样**：A 是否在找机会/持仓/停手；B 是否有财报事件或已部署。
-- **持仓是什么**：标的、数量、均价、名义金额、浮动盈亏（日报有则显示）。
-- **成交明细**：最近一日逐笔买/卖与金额；已平仓也会留在表里。
-- **今日活动**：日跑/侦察/成交/心跳，避免整页静默。
+- **今天选了谁**：今天打算交易谁 / 不交易；细节可在「名单细节」展开。
+- **最近一天赚亏多少**：最近一个交易日两条路线合计。
+- **双路今天怎样**：A / B 各自是在找机会、持仓，还是已暂停。
+- **持仓是什么**：标的、数量、均价、名义金额、浮动盈亏（有则显示）。
+- **盈亏走势 / 最近成交 / 练兵进度**：默认折叠，需要时再展开。
 - **演示数据**：样例；接上真实日报后会换成实况。
-- **云端看板**：只读已同步快照，**不会**连你电脑上的 OpenD。
+- **云端看板**：只读已同步快照，不等于连着你电脑上的行情/交易软件。
 - **黄条 / 红条**：黄=留意（过期/演示），红=要处理（同步失败或真下单开着）。
-  详见 `docs/dashboard_for_noah.md`。
-- **手动 / 自动刷新**：点「手动刷新」立刻重读；
-  自动刷新约每小时由浏览器重载（不阻塞服务器）。
+- **手动 / 自动刷新**：点「手动刷新」立刻重读；自动刷新约每小时由浏览器重载。
+- 有疑问时，问发密码给你的人。
 """
         )
 
-    with st.expander("更多技术细节（一般不用看）"):
-        st.write(f"实验编号：`{snap.experiment_id}`")
-        st.write(f"晋级原文：`{snap.promotion_verdict}`")
-        st.write(f"环境原文：`{snap.futu_env}`")
-        st.write(f"托管：`{snap.hosting_mode}`")
-        st.write(f"连接标记：`{snap.opend_mode or '—'}`")
-        st.write(f"同步状态：`{snap.sync_status}`")
-        st.write(f"健康提示：{snap.health_hint_zh}")
-        st.write(f"持仓条数：{len(snap.positions or [])}")
-        pm = snap.premarket or {}
-        st.write(
-            f"盘前决策：`{pm.get('status')}` · "
-            f"as_of=`{pm.get('as_of') or '—'}` · "
-            f"可交易 {len(pm.get('deployable') or [])} · "
-            f"否决 {len(pm.get('vetoed') or [])}"
-        )
-        if pm.get("source_path"):
-            st.write(f"名单路径：`{pm.get('source_path')}`")
-        hourly_zh = (
-            format_last_updated_zh(snap.hourly_as_of) if snap.hourly_as_of else "—"
-        )
-        st.write(f"小时心跳：`{hourly_zh}`")
-        st.code(snap.reports_dir)
-        st.caption("稳定 JSON 出口：`python -m dashboard.ops_export`")
-        st.caption(
-            f"自动刷新间隔：{page_refresh_seconds()}s · "
-            "小时采集：`futu-hourly-ops` / `scripts/run_hourly_ops_refresh.ps1`"
-        )
+    if not readonly:
+        with st.expander("更多技术细节（一般不用看）"):
+            st.write(f"实验编号：`{snap.experiment_id}`")
+            st.write(f"晋级原文：`{snap.promotion_verdict}`")
+            st.write(f"环境原文：`{snap.futu_env}`")
+            st.write(f"托管：`{snap.hosting_mode}`")
+            st.write(f"连接标记：`{snap.opend_mode or '—'}`")
+            st.write(f"同步状态：`{snap.sync_status}`")
+            st.write(f"健康提示：{snap.health_hint_zh}")
+            st.write(f"持仓条数：{len(snap.positions or [])}")
+            pm = snap.premarket or {}
+            st.write(
+                f"盘前决策：`{pm.get('status')}` · "
+                f"as_of=`{pm.get('as_of') or '—'}` · "
+                f"可交易 {len(pm.get('deployable') or [])} · "
+                f"否决 {len(pm.get('vetoed') or [])}"
+            )
+            if pm.get("source_path"):
+                st.write(f"名单路径：`{pm.get('source_path')}`")
+            hourly_zh = (
+                format_last_updated_zh(snap.hourly_as_of) if snap.hourly_as_of else "—"
+            )
+            st.write(f"小时心跳：`{hourly_zh}`")
+            st.code(snap.reports_dir)
+            st.caption("稳定 JSON 出口：`python -m dashboard.ops_export`")
+            st.caption(
+                f"自动刷新间隔：{page_refresh_seconds()}s · "
+                "小时采集：`futu-hourly-ops` / `scripts/run_hourly_ops_refresh.ps1`"
+            )
     return auto
 
 
@@ -1430,7 +1457,7 @@ def _render_ledger(state: DashboardState) -> None:
 
 
 def _render_lane_states(state: DashboardState) -> None:
-    st.subheader("路线状态（实验室）")
+    st.subheader("路线状态")
     if _readonly():
         st.info(f"**路线 A**：{human_lane_a(state.lane_a_state)}")
         st.info(f"**路线 B**：{human_lane_b(state.lane_b_state)}")
@@ -1442,7 +1469,7 @@ def _render_lane_states(state: DashboardState) -> None:
             "路线 A 状态码",
             LANE_A_STATES,
             index=LANE_A_STATES.index(state.lane_a_state),
-            help="HUNT → LOCKED → HALT",
+            help="找机会 → 持仓锁定 → 已暂停",
         )
         st.info(f"**路线 A**：{human_lane_a(state.lane_a_state)}")
     with c2:
@@ -1450,7 +1477,7 @@ def _render_lane_states(state: DashboardState) -> None:
             "路线 B 状态码",
             LANE_B_STATES,
             index=LANE_B_STATES.index(state.lane_b_state),
-            help="IDLE → SCOUT → DEPLOY → COOLDOWN → IDLE (+ HALT)",
+            help="空闲 → 侦察 → 部署 → 冷却 → 空闲（+ 已暂停）",
         )
         st.info(f"**路线 B**：{human_lane_b(state.lane_b_state)}")
 
@@ -1479,7 +1506,7 @@ def _render_agents(state: DashboardState) -> None:
 def _render_lab() -> None:
     config = load_portfolio_config(CONFIG_PATH)
     state = _init_session()
-    st.header("实验室视图")
+    st.header("高级调试")
     st.caption(
         f"总资金 ${config.total_capital:,.0f} · "
         f"A:B = {config.lane_a_ratio:.0%}:{config.lane_b_ratio:.0%} · "
@@ -1497,7 +1524,7 @@ def _render_lab() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="交易指挥室",
+        page_title="虚拟盘投资看板",
         layout="wide",
         initial_sidebar_state="collapsed",
     )
@@ -1506,16 +1533,14 @@ def main() -> None:
 
     auto_ops = False
     if _readonly():
-        auto_ops = _render_ops_home()
-        with st.expander("实验室视图（只读，可折叠）"):
-            _render_lab()
+        auto_ops = _render_ops_home(readonly=True)
         _schedule_browser_auto_refresh(auto_ops)
         return
 
-    tab_ops, tab_lab = st.tabs(["指挥室", "实验室"])
+    tab_ops, tab_debug = st.tabs(["投资看板", "高级调试"])
     with tab_ops:
-        auto_ops = _render_ops_home()
-    with tab_lab:
+        auto_ops = _render_ops_home(readonly=False)
+    with tab_debug:
         _render_lab()
     _schedule_browser_auto_refresh(auto_ops)
 
