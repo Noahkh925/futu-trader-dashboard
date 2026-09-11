@@ -51,21 +51,6 @@ SIDE_ZH: dict[str, str] = {
     "PUT": "看跌",
 }
 
-FILL_MODE_ZH: dict[str, str] = {
-    "mock_fill": "假成交",
-    "opend_sim": "真模拟",
-    "opend": "真模拟",
-}
-
-FILL_SIDE_ZH: dict[str, str] = {
-    "BUY": "买入",
-    "SELL": "卖出",
-    "LONG": "买入",
-    "SHORT": "卖出",
-}
-
-DEFAULT_FILL_HISTORY_DAYS = 5
-
 HostingMode = Literal["local", "cloud"]
 
 HALT_REASON_ZH: dict[str, str] = {
@@ -87,14 +72,14 @@ EXCLUDED_REASON_ZH: dict[str, str] = {
 SyncStatus = Literal["ok", "stale", "failed", "empty"]
 SYNC_META_NAME = ".sync_meta.json"
 HEARTBEAT_NAME = "heartbeat.json"
-# Display-only timezone for Noah (storage / cron stay UTC or America/New_York).
-BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 DEFAULT_CALENDAR_DAYS = 20
 DEFAULT_PNL_DAYS = 20
 STALE_AFTER_DAYS = 3
 # Live-virtual boards: warn when hourly heartbeat is older than this (hours).
 HOURLY_STALE_AFTER_HOURS = 3
 DEFAULT_PAGE_REFRESH_SECONDS = 3600
+# Display-only timezone for Noah (storage / cron stay UTC or America/New_York).
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def _repo_root() -> Path:
@@ -160,12 +145,6 @@ def _http_get_json(url: str, timeout: float = 20.0) -> Any:
     req = urllib.request.Request(url, headers={"User-Agent": "futu-trader-dashboard/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
-
-
-def _http_get_text(url: str, timeout: float = 20.0) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "futu-trader-dashboard/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8")
 
 
 def _write_sync_meta(dest: Path, *, status: str, error: str | None, synced_at: str | None) -> None:
@@ -266,18 +245,6 @@ def sync_remote_reports(base_url: str, dest: Path) -> SyncResult:
             encoding="utf-8",
         )
         pulled += 1
-        # Best-effort lane event logs (fills live here when daily_report lacks fills[]).
-        for log_name in ("lane_a.jsonl", "lane_b.jsonl"):
-            try:
-                text = _http_get_text(f"{base}/{day}/{log_name}")
-            except (
-                urllib.error.URLError,
-                urllib.error.HTTPError,
-                TimeoutError,
-            ):
-                continue
-            if text.strip():
-                (day_dir / log_name).write_text(text, encoding="utf-8")
 
     # Best-effort hourly heartbeat (optional; absent on older mirrors).
     try:
@@ -455,18 +422,7 @@ def _normalize_position(row: dict[str, Any]) -> dict[str, Any]:
         "notional": notional,
         "unrealized_pnl": unrealized,
         "note": str(note) if note else None,
-        "estimated": bool(row.get("estimated")),
     }
-
-
-def _position_flat(pos: dict[str, Any]) -> bool:
-    qty = _as_float(pos.get("qty"))
-    side = pos.get("side")
-    if qty is None or qty == 0:
-        return True
-    if side in (None, "", "FLAT"):
-        return True
-    return False
 
 
 def _infer_positions_from_lanes(report: dict[str, Any]) -> list[dict[str, Any]]:
@@ -534,11 +490,21 @@ def _infer_positions_from_lanes(report: dict[str, Any]) -> list[dict[str, Any]]:
                     "qty": lane_b.get("qty"),
                     "notional": lane_b.get("notional") or lane_b.get("entry_notional"),
                     "unrealized_pnl": lane_b.get("unrealized_pnl"),
-                    "note": "财报期权持仓中（腿明细见成交明细）",
+                    "note": "财报期权持仓中（腿明细见成交日志）",
                 }
             )
         )
     return rows
+
+
+def _position_flat(pos: dict[str, Any]) -> bool:
+    qty = _as_float(pos.get("qty"))
+    side = pos.get("side")
+    if qty is None or qty == 0:
+        return True
+    if side in (None, "", "FLAT"):
+        return True
+    return False
 
 
 def build_positions(report: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -553,399 +519,247 @@ def build_positions(report: dict[str, Any] | None) -> list[dict[str, Any]]:
     return _infer_positions_from_lanes(report)
 
 
+FILL_MODE_ZH: dict[str, str] = {
+    "opend_sim": "真模拟",
+    "mock_fill": "假成交",
+}
+
+
 def human_fill_mode(mode: str | None) -> str:
     if not mode:
-        return "未知模式"
+        return "—"
     return FILL_MODE_ZH.get(str(mode), str(mode))
 
 
-def human_fill_side(side: str | None) -> str | None:
-    if not side:
-        return None
-    key = str(side).upper()
-    return FILL_SIDE_ZH.get(key, human_side(side) or str(side))
+def _load_jsonl_fills(path: Path, *, default_lane: str) -> list[dict[str, Any]]:
+    """Best-effort local fallback when daily_report lacks fills[]."""
+    if not path.is_file():
+        return []
+    from staging.fills import normalize_fill_event
 
-
-def _short_clock_zh(ts: str | None) -> str:
-    """HH:MM in Beijing time for activity / fills (display only)."""
-    return format_clock_hhmm_zh(ts)
-
-
-def _normalize_fill(
-    row: dict[str, Any],
-    *,
-    default_lane: str | None = None,
-    session_date: str | None = None,
-) -> dict[str, Any] | None:
-    """Normalize one fill for the board. Returns None if not fill-like."""
-    event_type = str(row.get("type") or row.get("event") or "fill").lower()
-    if event_type and event_type not in {"fill", "fills"}:
-        return None
-    lane_raw = row.get("lane") or default_lane or "?"
-    lane = str(lane_raw).upper()
-    if lane in {"LANE_A", "A"}:
-        lane = "A"
-    elif lane in {"LANE_B", "B"}:
-        lane = "B"
-    side_raw = row.get("side")
-    side_s = str(side_raw).upper() if side_raw not in (None, "") else None
-    qty = _as_float(row.get("qty"))
-    price = _as_float(row.get("price") or row.get("avg_price") or row.get("fill_price"))
-    notional = _as_float(row.get("notional"))
-    if notional is None and qty is not None and price is not None:
-        notional = round(qty * price, 2)
-        estimated_notional = True
-    else:
-        estimated_notional = bool(row.get("estimated"))
-    symbol = row.get("symbol") or row.get("prefer_symbol") or row.get("underlier")
-    mode = row.get("mode") or row.get("paper_mode") or row.get("fill_mode")
-    ts = row.get("ts") or row.get("time") or row.get("clock") or row.get("filled_at")
-    day = row.get("session_date") or session_date
-    if not symbol and qty is None and price is None:
-        return None
-    return {
-        "lane": lane,
-        "session_date": str(day) if day else None,
-        "time": str(ts) if ts else None,
-        "time_zh": _short_clock_zh(str(ts) if ts else None),
-        "symbol": str(symbol) if symbol else None,
-        "side": side_s,
-        "side_zh": human_fill_side(side_s),
-        "qty": qty,
-        "price": price,
-        "notional": notional,
-        "mode": str(mode) if mode else None,
-        "mode_zh": human_fill_mode(str(mode) if mode else None),
-        "estimated": estimated_notional,
-    }
-
-
-def _read_jsonl_fills(
-    path: Path,
-    *,
-    lane: str,
-    session_date: str | None,
-) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
-        return rows
+        return []
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
         try:
-            payload = json.loads(line)
+            event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if not isinstance(payload, dict):
+        if not isinstance(event, dict) or event.get("type") != "fill":
             continue
-        if str(payload.get("type") or "").lower() != "fill":
-            continue
-        norm = _normalize_fill(payload, default_lane=lane, session_date=session_date)
-        if norm:
-            rows.append(norm)
+        row = normalize_fill_event(event, default_lane=default_lane)
+        if row:
+            rows.append(row)
     return rows
 
 
-def _resolve_lane_log_path(
-    reports_dir: Path,
-    report: dict[str, Any],
-    *,
-    artifact_key: str,
-    filename: str,
-) -> Path | None:
-    session = str(report.get("session_date") or "")
-    candidates: list[Path] = []
-    if session:
-        candidates.append(Path(reports_dir) / session / filename)
-    candidates.append(Path(reports_dir) / filename)
-    art = (report.get("artifact_paths") or {}).get(artifact_key)
-    if isinstance(art, str) and art.strip():
-        p = Path(art)
-        if p.is_absolute():
-            candidates.append(p)
-        else:
-            candidates.append(_repo_root() / p)
-            candidates.append(Path(reports_dir) / p)
-            candidates.append(Path(reports_dir) / p.name)
-            if session:
-                candidates.append(Path(reports_dir) / session / p.name)
-    seen: set[str] = set()
-    for cand in candidates:
-        key = str(cand)
-        if key in seen:
-            continue
-        seen.add(key)
-        if cand.is_file():
-            return cand
-    return None
+def _normalize_fill_row(row: dict[str, Any]) -> dict[str, Any]:
+    lane = str(row.get("lane") or "?").upper()
+    if lane in {"LANE_A", "A"}:
+        lane = "A"
+    elif lane in {"LANE_B", "B"}:
+        lane = "B"
+    side = row.get("side")
+    side_s = str(side).upper() if side not in (None, "") else None
+    mode = row.get("mode")
+    mode_s = str(mode) if mode not in (None, "") else None
+    return {
+        "lane": lane,
+        "ts": str(row.get("ts") or "") or None,
+        "symbol": str(row["symbol"]) if row.get("symbol") else None,
+        "side": side_s,
+        "side_zh": human_side(side_s),
+        "qty": _as_float(row.get("qty")),
+        "price": _as_float(row.get("price")),
+        "notional": _as_float(row.get("notional")),
+        "mode": mode_s,
+        "mode_zh": human_fill_mode(mode_s),
+        "reason": str(row["reason"]) if row.get("reason") else None,
+        "asset": str(row["asset"]) if row.get("asset") else None,
+    }
 
 
 def build_fills(
     report: dict[str, Any] | None,
+    *,
     reports_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Fill rows for one session — prefer embedded ``fills[]``, else lane_*.jsonl."""
+    """Per-trade rows for the ops board (embedded fills, else local jsonl)."""
     if not report:
         return []
-    session = str(report.get("session_date") or "") or None
-    embedded = report.get("fills")
-    if isinstance(embedded, list) and embedded:
-        out: list[dict[str, Any]] = []
-        for row in embedded:
-            if not isinstance(row, dict):
-                continue
-            # Embedded rows may omit type=fill
-            payload = dict(row)
-            payload.setdefault("type", "fill")
-            norm = _normalize_fill(payload, session_date=session)
-            if norm:
-                out.append(norm)
-        if out:
-            return out
+    raw = report.get("fills")
+    if isinstance(raw, list) and raw:
+        out = [_normalize_fill_row(p) for p in raw if isinstance(p, dict) and p.get("symbol")]
+        out.sort(key=lambda r: str(r.get("ts") or ""), reverse=True)
+        return out
 
-    if reports_dir is None:
-        return []
-    rdir = Path(reports_dir)
+    # Local fallback: parse lane_*.jsonl when cloud sync only has counts.
+    paths = report.get("artifact_paths") if isinstance(report.get("artifact_paths"), dict) else {}
+    candidates: list[tuple[str, str]] = []
+    session = str(report.get("session_date") or "")
+    search_roots: list[Path] = []
+    if reports_dir is not None:
+        search_roots.append(Path(reports_dir))
+        if session:
+            search_roots.append(Path(reports_dir) / session)
+
+    for lane_key, default_lane in (("lane_a_log", "A"), ("lane_b_log", "B")):
+        rel = paths.get(lane_key) if isinstance(paths.get(lane_key), str) else ""
+        found: Path | None = None
+        if rel:
+            # Try as-is relative to repo, then under reports_dir / session.
+            for root in [_repo_root(), *search_roots]:
+                cand = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+                if cand.is_file():
+                    found = cand
+                    break
+        if found is None and session and reports_dir is not None:
+            name = "lane_a.jsonl" if default_lane == "A" else "lane_b.jsonl"
+            cand = Path(reports_dir) / session / name
+            if cand.is_file():
+                found = cand
+        if found is not None:
+            candidates.append((str(found), default_lane))
+
     rows: list[dict[str, Any]] = []
-    path_a = _resolve_lane_log_path(
-        rdir, report, artifact_key="lane_a_log", filename="lane_a.jsonl"
-    )
-    path_b = _resolve_lane_log_path(
-        rdir, report, artifact_key="lane_b_log", filename="lane_b.jsonl"
-    )
-    if path_a:
-        rows.extend(_read_jsonl_fills(path_a, lane="A", session_date=session))
-    if path_b:
-        rows.extend(_read_jsonl_fills(path_b, lane="B", session_date=session))
-    return rows
-
-
-def build_fills_history(
-    reports: list[dict[str, Any]],
-    reports_dir: Path | None = None,
-    *,
-    limit_days: int = DEFAULT_FILL_HISTORY_DAYS,
-) -> list[dict[str, Any]]:
-    """Recent N sessions of fills, newest session last (stable for UI slicing)."""
-    out: list[dict[str, Any]] = []
-    for report in reports[-limit_days:]:
-        out.extend(build_fills(report, reports_dir))
-    return out
-
-
-def enrich_positions_amounts(
-    positions: list[dict[str, Any]],
-    fills: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Fill missing qty / avg / notional from same-lane buy fills; mark 估算."""
-    if not positions:
-        return positions
-    enriched: list[dict[str, Any]] = []
-    for pos in positions:
-        row = dict(pos)
-        lane = row.get("lane")
-        symbol = row.get("symbol")
-        needs_qty = row.get("qty") is None
-        needs_px = row.get("avg_price") is None
-        needs_notional = row.get("notional") is None
-        if not (needs_qty or needs_px or needs_notional):
-            enriched.append(row)
-            continue
-        buys = [
-            f
-            for f in fills
-            if f.get("lane") == lane
-            and (not symbol or f.get("symbol") == symbol)
-            and str(f.get("side") or "").upper() in {"BUY", "LONG"}
-        ]
-        if not buys:
-            # Any fill for lane if symbol missing on fills
-            buys = [
-                f
-                for f in fills
-                if f.get("lane") == lane
-                and str(f.get("side") or "").upper() in {"BUY", "LONG"}
-            ]
-        if not buys:
-            enriched.append(row)
-            continue
-        qty_sum = sum(float(f["qty"]) for f in buys if f.get("qty") is not None)
-        notional_sum = sum(
-            float(f["notional"]) for f in buys if f.get("notional") is not None
-        )
-        if needs_qty and qty_sum > 0:
-            row["qty"] = qty_sum
-            row["estimated"] = True
-        if needs_notional and notional_sum > 0:
-            row["notional"] = round(notional_sum, 2)
-            row["estimated"] = True
-        if needs_px and notional_sum > 0 and qty_sum > 0:
-            row["avg_price"] = round(notional_sum / qty_sum, 4)
-            row["estimated"] = True
-        if row.get("estimated"):
-            note = str(row.get("note") or "").strip()
-            if "估算" not in note:
-                row["note"] = (note + " · 估算" if note else "数量/金额为估算").strip(" ·")
-        enriched.append(row)
-    return enriched
+    for path_s, lane in candidates:
+        rows.extend(_load_jsonl_fills(Path(path_s), default_lane=lane))
+    rows.sort(key=lambda r: str(r.get("ts") or ""), reverse=True)
+    return [_normalize_fill_row(r) for r in rows]
 
 
 def build_activity_timeline(
     report: dict[str, Any] | None,
-    fills: list[dict[str, Any]],
     *,
-    limit: int = 12,
+    fills: list[dict[str, Any]] | None = None,
+    hourly_as_of: str | None = None,
+    lane_a_status: str | None = None,
+    lane_b_status: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Plain-Chinese activity lines so a quiet day still shows the system worked."""
-    if not report:
-        return []
+    """Plain-language activity strip so a quiet board still shows the system moved."""
     items: list[dict[str, Any]] = []
-    session = str(report.get("session_date") or "")
-    generated = str(report.get("generated_at") or "")
-    clock = _short_clock_zh(generated) or "—"
+    if not report and not hourly_as_of:
+        return items
 
-    run_status = str(report.get("run_status") or "")
-    run_summary = str(report.get("run_summary") or "").strip()
-    if run_status == "failed":
-        items.append(
-            {
-                "time": clock,
-                "text": run_summary or "日跑失败——请看异常说明",
-                "kind": "halt",
-            }
-        )
-    elif run_status == "degraded":
-        items.append(
-            {
-                "time": clock,
-                "text": run_summary or "日跑降级（非完整真模拟）",
-                "kind": "watch",
-            }
-        )
-    elif generated or session:
-        items.append(
-            {
-                "time": clock,
-                "text": f"日跑完成（{session or '当日'}）",
-                "kind": "run",
-            }
-        )
-
-    lane_a = report.get("lane_a") if isinstance(report.get("lane_a"), dict) else {}
-    lane_b = report.get("lane_b") if isinstance(report.get("lane_b"), dict) else {}
-
-    day_fills = [
-        f
-        for f in fills
-        if not session or not f.get("session_date") or f.get("session_date") == session
-    ]
-    # Newest fills first for the activity strip
-    for fill in reversed(day_fills[-6:]):
-        lane = fill.get("lane") or "?"
-        side = fill.get("side_zh") or fill.get("side") or "成交"
-        sym = fill.get("symbol") or "未标明"
-        money = fill.get("notional")
-        money_s = f"约 ${money:,.0f}" if isinstance(money, (int, float)) else ""
-        t = fill.get("time_zh") or clock
-        bits = [f"路线 {lane} {side} {sym}"]
-        if money_s:
-            bits.append(money_s)
-        mode = fill.get("mode_zh")
-        if mode:
-            bits.append(str(mode))
-        items.append({"time": t, "text": " · ".join(bits), "kind": "fill"})
-
-    if not any(f.get("lane") == "A" for f in day_fills):
-        a_state = str(lane_a.get("state") or "")
-        if a_state == "HUNT":
+    if report:
+        generated = str(report.get("generated_at") or "") or None
+        session = str(report.get("session_date") or "") or None
+        run_status = str(report.get("run_status") or "") or None
+        summary = str(report.get("run_summary") or "") or None
+        if generated or session:
+            if run_status == "failed":
+                text = summary or "日跑失败"
+                kind = "warn"
+            elif run_status == "degraded":
+                text = summary or "日跑降级（非真模拟）"
+                kind = "warn"
+            else:
+                text = "日跑完成"
+                kind = "ok"
             items.append(
                 {
-                    "time": clock,
-                    "text": "路线 A：今日在找机会，尚未成交",
-                    "kind": "info",
-                }
-            )
-        elif a_state == "LOCKED":
-            sym = lane_a.get("symbol")
-            items.append(
-                {
-                    "time": clock,
-                    "text": "路线 A：持仓中" + (f"（{sym}）" if sym else ""),
-                    "kind": "info",
-                }
-            )
-        elif a_state == "HALT":
-            items.append(
-                {
-                    "time": clock,
-                    "text": f"路线 A：已停手 — {human_halt_reason(lane_a.get('halt_reason'))}",
-                    "kind": "halt",
+                    "ts": generated or session,
+                    "kind": kind,
+                    "text": text,
                 }
             )
 
-    if not any(f.get("lane") == "B" for f in day_fills):
+        lane_b = report.get("lane_b") if isinstance(report.get("lane_b"), dict) else {}
         day_mode = str(lane_b.get("day_mode") or "").lower()
-        if day_mode in {"scout", "scout_only"}:
-            hits = int(lane_b.get("scout_hits") or 0)
-            sym = lane_b.get("prefer_symbol")
-            extra = f" · 关注 {sym}" if sym else ""
+        scout_hits = int(lane_b.get("scout_hits") or 0)
+        fills_b = int(lane_b.get("fills_count") or 0)
+        sym = lane_b.get("prefer_symbol")
+        if fills_b == 0:
+            if day_mode == "idle_empty":
+                scout_text = "B 今日无财报事件"
+            elif day_mode in {"scout", "scout_only"} or scout_hits > 0:
+                scout_text = (
+                    f"B 今日仅侦察（{scout_hits} 次命中）" if scout_hits else "B 今日仅侦察无开仓"
+                )
+            else:
+                scout_text = None
+            if scout_text:
+                if sym:
+                    scout_text = f"{scout_text}（关注 {sym}）"
+                items.append({"ts": generated or session, "kind": "info", "text": scout_text})
+
+        if not (fills or []) and lane_a_status:
             items.append(
                 {
-                    "time": clock,
-                    "text": f"路线 B：今日仅侦察无成交（扫描 {hits} 次）{extra}",
-                    "kind": "scout",
-                }
-            )
-        elif day_mode in {"idle_empty", "idle"}:
-            items.append(
-                {
-                    "time": clock,
-                    "text": "路线 B：今日无财报事件，待命",
+                    "ts": generated or session,
                     "kind": "info",
+                    "text": f"A：{lane_a_status}",
                 }
             )
-        elif day_mode == "deploy" or str(lane_b.get("state") or "") == "DEPLOY":
-            sym = lane_b.get("prefer_symbol")
+        if not (fills or []) and lane_b_status and fills_b > 0:
             items.append(
                 {
-                    "time": clock,
-                    "text": "路线 B：持仓中" + (f"（关注 {sym}）" if sym else ""),
+                    "ts": generated or session,
                     "kind": "info",
-                }
-            )
-        elif day_mode == "halt" or str(lane_b.get("state") or "") == "HALT":
-            items.append(
-                {
-                    "time": clock,
-                    "text": f"路线 B：已停手 — {human_halt_reason(lane_b.get('halt_reason'))}",
-                    "kind": "halt",
+                    "text": f"B：{lane_b_status}",
                 }
             )
 
-    for halt in report.get("halts") or []:
-        if not isinstance(halt, dict):
-            continue
+        for fill in (fills or [])[:5]:
+            lane = fill.get("lane") or "?"
+            side = fill.get("side_zh") or fill.get("side") or "成交"
+            sym = fill.get("symbol") or "?"
+            notional = fill.get("notional")
+            qty = fill.get("qty")
+            money = ""
+            if notional is not None:
+                money = f" · 约 ${float(notional):,.0f}"
+            elif qty is not None and fill.get("price") is not None:
+                money = f" · {float(qty):g}×${float(fill['price']):,.2f}"
+            mode = fill.get("mode_zh") or ""
+            mode_bit = f" · {mode}" if mode and mode != "—" else ""
+            items.append(
+                {
+                    "ts": fill.get("ts") or generated or session,
+                    "kind": "fill",
+                    "text": f"{lane} {side} {sym}{money}{mode_bit}",
+                }
+            )
+
+        for halt in report.get("halts") or []:
+            if not isinstance(halt, dict):
+                continue
+            lane = halt.get("lane") or "?"
+            reason = human_halt_reason(halt.get("reason"))
+            items.append(
+                {
+                    "ts": generated or session,
+                    "kind": "warn",
+                    "text": f"{lane} 停手 — {reason}",
+                }
+            )
+
+    if hourly_as_of:
         items.append(
             {
-                "time": clock,
-                "text": (
-                    f"停手 · 路线 {halt.get('lane') or '?'} — "
-                    f"{human_halt_reason(halt.get('reason'))}"
-                ),
-                "kind": "halt",
+                "ts": hourly_as_of,
+                "kind": "heartbeat",
+                "text": f"小时心跳 {format_last_updated_zh(hourly_as_of)}",
             }
         )
 
-    # De-dupe consecutive identical texts
-    deduped: list[dict[str, Any]] = []
-    for item in items:
-        if deduped and deduped[-1].get("text") == item.get("text"):
+    # Deduplicate identical text+ts while preserving order
+    seen: set[tuple[str, str]] = set()
+    unique: list[dict[str, Any]] = []
+    for it in items:
+        key = (str(it.get("ts") or ""), str(it.get("text") or ""))
+        if key in seen:
             continue
-        deduped.append(item)
-    return deduped[:limit]
+        seen.add(key)
+        unique.append(it)
+
+    unique.sort(key=lambda r: str(r.get("ts") or ""), reverse=True)
+    return unique[:12]
 
 
 def lane_a_status_zh(report: dict[str, Any] | None) -> str:
@@ -1382,6 +1196,235 @@ def _maybe_mark_stale_by_age(
     return status, None
 
 
+PremarketStatus = Literal[
+    "ok",
+    "empty_universe",
+    "missing",
+    "bad_schema",
+    "waiting",
+]
+
+
+def _format_pct_metric(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.2f}%"
+
+
+def _format_rvol(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.2f}×"
+
+
+def _name_to_premarket_row(name: Any) -> dict[str, Any]:
+    """Serialize a LaneATechName (or duck-typed object) for the board."""
+    reasons = list(getattr(name, "reasons", ()) or ())
+    sources = list(getattr(name, "sources", ()) or ())
+    reason = getattr(name, "reason", None)
+    return {
+        "symbol": str(getattr(name, "symbol", "") or ""),
+        "score": float(getattr(name, "score", 0.0) or 0.0),
+        "veto": bool(getattr(name, "veto", False)),
+        "reasons": reasons,
+        "sources": sources,
+        "gap_pct": getattr(name, "gap_pct", None),
+        "atr_pct": getattr(name, "atr_pct", None),
+        "relative_volume": getattr(name, "relative_volume", None),
+        "gap_pct_zh": _format_pct_metric(getattr(name, "gap_pct", None)),
+        "atr_pct_zh": _format_pct_metric(getattr(name, "atr_pct", None)),
+        "rvol_zh": _format_rvol(getattr(name, "relative_volume", None)),
+        "last_price": getattr(name, "last_price", None),
+        "regime_tag": getattr(name, "regime_tag", None),
+        "reason": str(reason) if reason else None,
+        "reason_text": (
+            str(reason)
+            if reason
+            else ("; ".join(str(r) for r in reasons) if reasons else "—")
+        ),
+    }
+
+
+def resolve_tech_watchlist_path(
+    config: PortfolioConfig | None = None,
+    *,
+    reports_dir: Path | None = None,
+) -> Path | None:
+    """Resolve Lane A tech watchlist file (env → config → logs → live_reports)."""
+    root = _repo_root()
+    candidates: list[Path] = []
+
+    for env_name in ("TECH_WATCHLIST_PATH", "LANE_A_TECH_WATCHLIST_PATH"):
+        raw = os.environ.get(env_name, "").strip()
+        if not raw:
+            continue
+        path = Path(raw)
+        if not path.is_absolute():
+            path = root / path
+        candidates.append(path)
+
+    if config is not None and config.lane_a.tech_watchlist_path:
+        path = Path(config.lane_a.tech_watchlist_path)
+        if not path.is_absolute():
+            path = root / path
+        candidates.append(path)
+
+    candidates.append(root / "logs" / "lane_a" / "tech_watchlist.json")
+    candidates.append(root / "live_reports" / "lane_a" / "tech_watchlist.json")
+    if reports_dir is not None:
+        candidates.append(Path(reports_dir) / "lane_a" / "tech_watchlist.json")
+        candidates.append(Path(reports_dir).parent / "lane_a" / "tech_watchlist.json")
+    # Labeled demo fixture last — never silent live; UI marks data_label=demo_fixtures.
+    candidates.append(root / "fixtures" / "lane_a" / "valid_lane_a_tech_watchlist.json")
+
+    seen: set[str] = set()
+    for path in candidates:
+        key = str(path.resolve()) if path.exists() else str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if path.is_file():
+            return path
+    return None
+
+
+def empty_premarket_decision(
+    *,
+    status: PremarketStatus,
+    headline_zh: str,
+    detail_zh: str,
+    no_trade_reason_zh: str | None = None,
+    source_path: str | None = None,
+    data_label: str = "missing",
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "as_of": None,
+        "generated_at_zh": None,
+        "schema_version": None,
+        "generated_by": None,
+        "universe_note": None,
+        "timezone": None,
+        "experiment_id": None,
+        "source_path": source_path,
+        "data_label": data_label,  # live | demo_fixtures | missing
+        "deployable": [],
+        "vetoed": [],
+        "no_trade": True,
+        "no_trade_reason_zh": no_trade_reason_zh or detail_zh,
+        "headline_zh": headline_zh,
+        "detail_zh": detail_zh,
+        "footnote_zh": (
+            "名单 ≠ 下单指令。入场仍由 ORB+VWAP 决定；真下单默认关闭；"
+            "本页信息不构成投资建议（NFA）。"
+        ),
+    }
+
+
+def build_premarket_decision(
+    config: PortfolioConfig,
+    *,
+    reports_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Board-facing Lane A premarket decision panel (lane_a_tech_1.0)."""
+    from data.lane_a_tech_watchlist import (
+        LaneATechWatchlistError,
+        load_lane_a_tech_watchlist,
+    )
+
+    path = resolve_tech_watchlist_path(config, reports_dir=reports_dir)
+    if path is None:
+        return empty_premarket_decision(
+            status="waiting",
+            headline_zh="今日盘前决策：等待同步",
+            detail_zh=(
+                "还没有可读的 Lane A 技术面名单（logs/lane_a/tech_watchlist.json）。"
+                "盘前 Autopilot / Analyst 产出后，或 Engineer 同步到云端后，这里会自动出现。"
+            ),
+            no_trade_reason_zh="缺文件 — 今日 Lane A 应按 no_trade_day 处理（不会静默假装有名单）",
+            data_label="missing",
+        )
+
+    path_s = str(path).replace("\\", "/")
+    data_label = "demo_fixtures" if "fixtures" in path_s else "live"
+    generated_at_zh = format_last_updated_zh(_mtime_iso(path))
+
+    try:
+        wl = load_lane_a_tech_watchlist(path)
+    except LaneATechWatchlistError as exc:
+        return empty_premarket_decision(
+            status="bad_schema",
+            headline_zh="今日盘前决策：名单校验失败",
+            detail_zh=f"读到了文件，但 schema / 内容不合格：{exc}",
+            no_trade_reason_zh=f"坏 schema — 今日 Lane A 不交易（no_trade_day）：{exc}",
+            source_path=path_s,
+            data_label=data_label,
+        )
+    except (OSError, ValueError) as exc:
+        return empty_premarket_decision(
+            status="bad_schema",
+            headline_zh="今日盘前决策：名单无法读取",
+            detail_zh=f"文件存在但读失败：{exc}",
+            no_trade_reason_zh=f"读失败 — 今日 Lane A 不交易（no_trade_day）：{exc}",
+            source_path=path_s,
+            data_label=data_label,
+        )
+
+    deployable = [_name_to_premarket_row(n) for n in wl.deployable()]
+    vetoed = [_name_to_premarket_row(n) for n in wl.vetoed()]
+    deployable.sort(key=lambda r: float(r.get("score") or 0.0), reverse=True)
+    as_of = wl.as_of.isoformat()
+
+    base = {
+        "as_of": as_of,
+        "generated_at_zh": generated_at_zh,
+        "schema_version": wl.schema_version,
+        "generated_by": wl.generated_by,
+        "universe_note": wl.universe_note,
+        "timezone": wl.timezone,
+        "experiment_id": None,
+        "source_path": path_s,
+        "data_label": data_label,
+        "deployable": deployable,
+        "vetoed": vetoed,
+        "footnote_zh": (
+            "名单 ≠ 下单指令。入场仍由 ORB+VWAP 决定；真下单默认关闭；"
+            "本页信息不构成投资建议（NFA）。"
+        ),
+    }
+    # Optional experiment id if present on disk payload (not in dataclass).
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and raw.get("experiment_id"):
+            base["experiment_id"] = str(raw["experiment_id"])
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if not deployable:
+        note = wl.universe_note or "可交易名单为空"
+        return {
+            **base,
+            "status": "empty_universe",
+            "no_trade": True,
+            "no_trade_reason_zh": f"今日 Lane A 不交易（no_trade_day）：{note}",
+            "headline_zh": f"今日盘前决策：空日 · {as_of}（美东）",
+            "detail_zh": note,
+        }
+
+    symbols = "、".join(r["symbol"] for r in deployable)
+    return {
+        **base,
+        "status": "ok",
+        "no_trade": False,
+        "no_trade_reason_zh": None,
+        "headline_zh": f"今日可交易：{symbols}",
+        "detail_zh": (
+            f"美东交易日 {as_of} · 选入 {len(deployable)} 只"
+            f"（否决 {len(vetoed)} 只）· 规则 {wl.schema_version}"
+        ),
+    }
+
+
 @dataclass
 class OpsSnapshot:
     trading_enabled: bool
@@ -1426,11 +1469,11 @@ class OpsSnapshot:
     hourly_as_of: str | None = None
     hourly_opend_reachable: bool | None = None
     hourly_quote_source: str | None = None
-    # PROH-90: fills + activity
+    # PROH-90: trade detail + activity sense
     fills: list[dict[str, Any]] = field(default_factory=list)
-    fills_history: list[dict[str, Any]] = field(default_factory=list)
-    activity_timeline: list[dict[str, Any]] = field(default_factory=list)
-    last_updated_zh: str = "—"
+    activity: list[dict[str, Any]] = field(default_factory=list)
+    # PROH-107: Lane A premarket decision transparency
+    premarket: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1524,24 +1567,20 @@ def build_ops_snapshot(
         hosting_mode=hosting_mode, opend_reachable=opend_reachable
     )
     path_caption = data_path_caption_zh(hosting_mode)
-    fills_history = build_fills_history(all_reports, rdir)
-    session = str((report or {}).get("session_date") or "") or None
-    fills = [
-        f
-        for f in fills_history
-        if not session or f.get("session_date") == session or not f.get("session_date")
-    ]
-    if not fills and report:
-        fills = build_fills(report, rdir)
-    positions = enrich_positions_amounts(build_positions(report), fills)
-    activity = build_activity_timeline(report, fills)
-    last_updated_zh = format_last_updated_zh(
-        sync.synced_at or data_as_of or hourly_as_of
-    )
+    positions = build_positions(report)
+    fills = build_fills(report, reports_dir=rdir)
     a_status = lane_a_status_zh(report)
     b_status = lane_b_status_zh(report)
     a_label = a_status if report else "暂无数据"
     b_label = b_status if report else "暂无数据"
+    activity = build_activity_timeline(
+        report,
+        fills=fills,
+        hourly_as_of=hourly_as_of,
+        lane_a_status=a_status if report else None,
+        lane_b_status=b_status if report else None,
+    )
+    premarket = build_premarket_decision(config, reports_dir=rdir)
 
     if config.trading_enabled:
         alert = "真下单总开关是开着的——请确认这是有意为之。"
@@ -1634,9 +1673,8 @@ def build_ops_snapshot(
         hourly_opend_reachable=hourly_opend_reachable,
         hourly_quote_source=hourly_quote_source,
         fills=fills,
-        fills_history=fills_history,
-        activity_timeline=activity,
-        last_updated_zh=last_updated_zh,
+        activity=activity,
+        premarket=premarket,
     )
 
 

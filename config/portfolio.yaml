@@ -17,7 +17,12 @@ futu:
   env: staging
 
 lane_a:
+  # symbol used when universe_mode=fixed; never a silent fallback for watchlist.
   symbol: US.QQQ
+  universe_mode: fixed
+  tech_watchlist_path: fixtures/lane_a/valid_lane_a_tech_watchlist.json
+  empty_universe_policy: no_trade
+  max_universe_names: 3
   orb:
     window_minutes: 15
     breakout_buffer_pct: 0.0
@@ -33,8 +38,8 @@ lane_a:
     max_position_pct: 0.25
     allow_add_to_position: false
   paper:
-    # opend_sim: OpenD virtual/sim account when available; falls back with report flag
-    mode: opend_sim
+    # mock_fill: CI / offline. Use config/portfolio.virtual.yaml for OpenD simulate.
+    mode: mock_fill
     fill_slippage_bps: 0.0
 
 lane_b:
@@ -59,4 +64,4 @@ lane_b:
     source: fixture
     fixture_path: fixtures/option_chains.json
   paper:
-    mode: opend_sim
+    mode: mock_fill
