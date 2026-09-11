@@ -1,0 +1,78 @@
+{
+  "schema_version": "lane_a_tech_1.0",
+  "as_of": "2026-09-10",
+  "universe_note": "Demo pre-market US liquid screen; max 5 names; min_price>=5; 20d avg_dollar_volume>=20e6; empty list → no Lane A trade that day (no silent QQQ fallback in this fixture).",
+  "timezone": "America/New_York",
+  "generated_by": "Analyst PL / PROH-93 fixture",
+  "names": [
+    {
+      "symbol": "US.QQQ",
+      "score": 8.5,
+      "veto": false,
+      "reasons": [
+        "Passes min_price and ADV floors on Yahoo daily bars",
+        "gap_pct and atr_pct within ORB-friendly band for demo"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars (QQQ)",
+        "config placeholder: lane_a.min_price=5; lane_a.min_adv_dollar=20e6"
+      ],
+      "last_price": 478.2,
+      "avg_dollar_volume": 12500000000,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": 0.35,
+      "atr_pct": 1.2,
+      "relative_volume": 1.1,
+      "regime_tag": "trend_up",
+      "market": "US",
+      "reason": "Liquid ETF; gates pass; mild gap"
+    },
+    {
+      "symbol": "US.NVDA",
+      "score": 7.2,
+      "veto": false,
+      "reasons": [
+        "High ADV; min_price ok",
+        "relative_volume elevated vs 20d average"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars (NVDA)",
+        "Yahoo Finance quote (last_price)"
+      ],
+      "last_price": 128.4,
+      "avg_volume": 280000000,
+      "avg_dollar_volume": 35952000000,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": 1.05,
+      "atr_pct": 3.4,
+      "relative_volume": 1.6,
+      "regime_tag": "high_vol",
+      "market": "US"
+    },
+    {
+      "symbol": "US.PENNY",
+      "score": 2.0,
+      "veto": true,
+      "reasons": [
+        "last_price 2.15 below min_price 5 → min_price_ok=false",
+        "listed for audit only; must not enter Lane A universe"
+      ],
+      "sources": [
+        "Yahoo Finance quote (PENNY demo)",
+        "config placeholder: lane_a.min_price=5"
+      ],
+      "last_price": 2.15,
+      "avg_dollar_volume": 500000,
+      "min_price_ok": false,
+      "adv_ok": false,
+      "gap_pct": 8.0,
+      "atr_pct": 12.0,
+      "relative_volume": 3.0,
+      "regime_tag": "illiquid",
+      "market": "US",
+      "reason": "FAIL-CLOSED: price and ADV gates failed"
+    }
+  ]
+}

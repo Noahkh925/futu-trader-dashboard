@@ -34,6 +34,11 @@ class LaneAConfig:
     orb: OrbVwapConfig
     risk: RiskLimits
     paper: PaperConfig
+    # fixed: trade ``symbol`` only. watchlist: lane_a_tech_1.0 file (fail closed).
+    universe_mode: str = "fixed"
+    tech_watchlist_path: str | None = None
+    empty_universe_policy: str = "no_trade"
+    max_universe_names: int = 3
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,10 @@ class PortfolioConfig:
 def _default_lane_a() -> dict[str, Any]:
     return {
         "symbol": "US.QQQ",
+        "universe_mode": "fixed",
+        "tech_watchlist_path": None,
+        "empty_universe_policy": "no_trade",
+        "max_universe_names": 3,
         "orb": {"window_minutes": 15, "breakout_buffer_pct": 0.0},
         "vwap": {"require_above_for_long": True, "require_below_for_short": True},
         "regime": {"enabled": False, "min_or_range_pct": 0.001},
@@ -215,6 +224,16 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
                 mode=str(paper_raw.get("mode", "mock_fill")),
                 fill_slippage_bps=float(paper_raw.get("fill_slippage_bps", 0)),
             ),
+            universe_mode=str(lane_raw.get("universe_mode", "fixed")),
+            tech_watchlist_path=(
+                str(lane_raw["tech_watchlist_path"])
+                if lane_raw.get("tech_watchlist_path")
+                else None
+            ),
+            empty_universe_policy=str(
+                lane_raw.get("empty_universe_policy", "no_trade")
+            ),
+            max_universe_names=int(lane_raw.get("max_universe_names", 3)),
         ),
         lane_b=LaneBConfig(
             horizon_days=int(lane_b_raw["horizon_days"]),

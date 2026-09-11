@@ -1,0 +1,8 @@
+{
+  "schema_version": "lane_a_tech_1.0",
+  "as_of": "2026-09-10",
+  "universe_note": "Empty screen; executor must no_trade_day (no QQQ fallback).",
+  "timezone": "America/New_York",
+  "generated_by": "PROH-96 empty fixture",
+  "names": []
+}

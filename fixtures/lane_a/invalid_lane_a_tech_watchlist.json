@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-09-10",
+  "universe_note": "INVALID EXAMPLE — must fail validation / Analyst rejection (Lane B version + weak evidence + gate contradiction)",
+  "timezone": "America/New_York",
+  "generated_by": "INVALID fixture",
+  "names": [
+    {
+      "symbol": "AAPL",
+      "score": 99,
+      "veto": false,
+      "reasons": [],
+      "sources": [],
+      "last_price": 220,
+      "min_price_ok": true,
+      "adv_ok": true
+    },
+    {
+      "symbol": "US.LOOKSGOOD",
+      "score": 50,
+      "veto": false,
+      "reasons": ["LLM looked at the chart and liked the setup"],
+      "sources": ["pure LLM chart read — no bars/quote dataset"],
+      "last_price": null,
+      "avg_dollar_volume": null,
+      "min_price_ok": true,
+      "adv_ok": true
+    },
+    {
+      "symbol": "US.CHEAP",
+      "score": 40,
+      "veto": false,
+      "reasons": ["cheap name for ORB"],
+      "sources": ["Yahoo Finance quote"],
+      "last_price": 3.0,
+      "avg_dollar_volume": 100000,
+      "min_price_ok": false,
+      "adv_ok": false
+    },
+    {
+      "symbol": "HK.00700",
+      "earnings_at": "2026-09-15",
+      "session": "amc",
+      "score": 10,
+      "veto": false,
+      "reasons": ["Lane B fields smuggled into Lane A"],
+      "sources": ["fixtures/earnings_calendar.json"],
+      "last_price": 380,
+      "avg_dollar_volume": 1e9,
+      "min_price_ok": true,
+      "adv_ok": true
+    }
+  ]
+}
