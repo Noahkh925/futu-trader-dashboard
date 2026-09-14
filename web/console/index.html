@@ -11,11 +11,24 @@
 </head>
 <body>
   <div id="gate" class="gate hidden" aria-label="密码门">
-    <h1>作战台</h1>
-    <p>输入密码后查看；此页不会改真下单开关。</p>
-    <input id="gate-password" type="password" autocomplete="current-password" placeholder="密码" />
-    <button type="button" id="gate-submit">进入</button>
-    <div id="gate-error" class="err hidden"></div>
+    <div class="gate-panel">
+      <p class="gate-brand">作战台</p>
+      <h1 class="gate-title">输入密码后查看</h1>
+      <p class="gate-hint">只读监盘 · 此页不会改真下单开关</p>
+      <form id="gate-form" class="gate-form" autocomplete="on">
+        <label class="gate-label" for="gate-password">密码</label>
+        <input
+          id="gate-password"
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="输入访问密码"
+          autofocus
+        />
+        <button type="submit" id="gate-submit" class="gate-submit">进入</button>
+      </form>
+      <div id="gate-error" class="gate-err hidden" role="alert"></div>
+    </div>
   </div>
 
   <div id="app" class="wrap hidden">
