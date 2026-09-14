@@ -10,6 +10,7 @@
 
   const els = {
     gate: document.getElementById("gate"),
+    gateForm: document.getElementById("gate-form"),
     gatePassword: document.getElementById("gate-password"),
     gateSubmit: document.getElementById("gate-submit"),
     gateError: document.getElementById("gate-error"),
@@ -82,6 +83,11 @@
     } else {
       els.gateError.classList.add("hidden");
     }
+    // Re-run enter animation if gate is shown again after an error.
+    els.gate.style.animation = "none";
+    void els.gate.offsetWidth;
+    els.gate.style.animation = "";
+    setTimeout(() => els.gatePassword && els.gatePassword.focus(), 0);
   }
 
   function showApp() {
@@ -734,8 +740,7 @@
     try {
       auth = await apiGet("/api/v1/auth/status");
     } catch (err) {
-      showGate("无法连接控制台 API。请确认已启动 futu-console。");
-      els.gate.classList.remove("hidden");
+      showGate("暂时连不上作战台。请稍后再试；若持续失败，联系维护人。");
       return;
     }
 
@@ -749,17 +754,24 @@
     startAutoRefresh();
   }
 
-  els.gateSubmit.addEventListener("click", async () => {
+  async function submitGate(ev) {
+    if (ev) ev.preventDefault();
     password = (els.gatePassword.value || "").trim();
+    if (!password) {
+      showGate("请先输入密码。");
+      return;
+    }
     sessionStorage.setItem(PASS_KEY, password);
     showApp();
     await refresh();
     startAutoRefresh();
-  });
+  }
 
-  els.gatePassword.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter") els.gateSubmit.click();
-  });
+  if (els.gateForm) {
+    els.gateForm.addEventListener("submit", submitGate);
+  } else {
+    els.gateSubmit.addEventListener("click", submitGate);
+  }
 
   document.getElementById("btn-refresh").addEventListener("click", () => {
     refresh();
