@@ -115,6 +115,7 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/health")
+    @app.get("/_stcore/health")  # Render UI may still probe Streamlit path post-cutover
     def health() -> dict[str, Any]:
         return {
             "ok": True,

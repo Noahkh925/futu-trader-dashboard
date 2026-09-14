@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
+    # Prefer /health. /_stcore/health is also served (Streamlit-era Render UI leftover).
     healthCheckPath: /health
     envVars:
       - key: DASHBOARD_READONLY
@@ -19,3 +20,5 @@ services:
         sync: false
       - key: DASHBOARD_PASSWORD
         sync: false
+      - key: DASHBOARD_REFRESH_SECONDS
+        value: "3600"
