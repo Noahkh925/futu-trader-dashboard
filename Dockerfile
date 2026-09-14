@@ -9,16 +9,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY config ./config
 COPY fixtures ./fixtures
+COPY web ./web
 COPY src ./src
 
-RUN pip install --no-cache-dir -e ".[dashboard]"
+RUN pip install --no-cache-dir -e ".[console]"
 
 ENV DASHBOARD_READONLY=1
+ENV DASHBOARD_HOSTING=cloud
 ENV REPORTS_DIR=fixtures/staging/promotion_ok
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8501
+EXPOSE 8787
 
-HEALTHCHECK CMD curl --fail http://localhost:${PORT:-8501}/_stcore/health || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:${PORT:-8787}/health || exit 1
 
-CMD ["sh", "-c", "streamlit run src/dashboard/app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false"]
+# T3 作战台：FastAPI + web/console（PROH-126/128/129）
+# reports_dir 留空 → build_ops_snapshot 走 REPORTS_DIR / REPORTS_REMOTE_BASE
+CMD ["sh", "-c", "uvicorn api.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8787}"]

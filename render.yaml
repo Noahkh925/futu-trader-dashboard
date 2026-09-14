@@ -4,11 +4,18 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    healthCheckPath: /_stcore/health
+    healthCheckPath: /health
     envVars:
       - key: DASHBOARD_READONLY
         value: "1"
+      - key: DASHBOARD_HOSTING
+        value: "cloud"
+      # Boot demo only until REPORTS_REMOTE_BASE is set and first sync lands.
       - key: REPORTS_DIR
         value: fixtures/staging/promotion_ok
+      # Set in Render console to the public live_reports raw URL, e.g.
+      # https://raw.githubusercontent.com/Noahkh925/futu-trader-dashboard/main/live_reports
+      - key: REPORTS_REMOTE_BASE
+        sync: false
       - key: DASHBOARD_PASSWORD
         sync: false

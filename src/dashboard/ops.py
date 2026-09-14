@@ -15,6 +15,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from core.portfolio import PortfolioConfig, load_portfolio_config
+from dashboard.lane_a_watchlist import build_lane_a_watchlist_panel
 from research.promotion import DayVerdict, check_promotion, discover_reports, evaluate_day
 
 LANE_A_LABELS: dict[str, str] = {
@@ -72,6 +73,7 @@ EXCLUDED_REASON_ZH: dict[str, str] = {
 SyncStatus = Literal["ok", "stale", "failed", "empty"]
 SYNC_META_NAME = ".sync_meta.json"
 HEARTBEAT_NAME = "heartbeat.json"
+LANE_A_WATCHLIST_REMOTE = "lane_a/tech_watchlist.json"
 DEFAULT_CALENDAR_DAYS = 20
 DEFAULT_PNL_DAYS = 20
 STALE_AFTER_DAYS = 3
@@ -252,6 +254,24 @@ def sync_remote_reports(base_url: str, dest: Path) -> SyncResult:
         if isinstance(hb, dict):
             (dest / HEARTBEAT_NAME).write_text(
                 json.dumps(hb, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+    except (
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        TimeoutError,
+        json.JSONDecodeError,
+    ):
+        pass
+
+    # Best-effort Lane A premarket tech watchlist (PROH-109).
+    try:
+        wl = _http_get_json(f"{base}/{LANE_A_WATCHLIST_REMOTE}")
+        if isinstance(wl, dict):
+            wl_dir = dest / "lane_a"
+            wl_dir.mkdir(parents=True, exist_ok=True)
+            (wl_dir / "tech_watchlist.json").write_text(
+                json.dumps(wl, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
     except (
@@ -1472,6 +1492,8 @@ class OpsSnapshot:
     # PROH-90: trade detail + activity sense
     fills: list[dict[str, Any]] = field(default_factory=list)
     activity: list[dict[str, Any]] = field(default_factory=list)
+    # PROH-109: Lane A premarket tech watchlist panel payload
+    lane_a_tech_watchlist: dict[str, Any] = field(default_factory=dict)
     # PROH-107: Lane A premarket decision transparency
     premarket: dict[str, Any] = field(default_factory=dict)
 
@@ -1580,6 +1602,11 @@ def build_ops_snapshot(
         lane_a_status=a_status if report else None,
         lane_b_status=b_status if report else None,
     )
+    lane_a_wl = build_lane_a_watchlist_panel(
+        config=config,
+        reports_dir=rdir,
+        repo_root=root,
+    )
     premarket = build_premarket_decision(config, reports_dir=rdir)
 
     if config.trading_enabled:
@@ -1674,6 +1701,7 @@ def build_ops_snapshot(
         hourly_quote_source=hourly_quote_source,
         fills=fills,
         activity=activity,
+        lane_a_tech_watchlist=lane_a_wl.to_dict(),
         premarket=premarket,
     )
 
