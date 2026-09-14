@@ -15,6 +15,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from core.portfolio import PortfolioConfig, load_portfolio_config
+from core.rth import session_phase
 from dashboard.lane_a_watchlist import build_lane_a_watchlist_panel
 from research.promotion import DayVerdict, check_promotion, discover_reports, evaluate_day
 
@@ -79,9 +80,19 @@ DEFAULT_PNL_DAYS = 20
 STALE_AFTER_DAYS = 3
 # Live-virtual boards: warn when hourly heartbeat is older than this (hours).
 HOURLY_STALE_AFTER_HOURS = 3
+# During RTH, runner should refresh heartbeat often; older → treat as unknown.
+RTH_RUNNER_STALE_AFTER_MINUTES = 20
 DEFAULT_PAGE_REFRESH_SECONDS = 3600
 # Display-only timezone for Noah (storage / cron stay UTC or America/New_York).
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+
+RthResidentCode = Literal["running", "closed", "opend_down", "unknown"]
+RTH_RESIDENT_LABEL_ZH: dict[RthResidentCode, str] = {
+    "running": "开市常驻：在跑",
+    "closed": "开市常驻：休市",
+    "opend_down": "开市常驻：OpenD 断线",
+    "unknown": "开市常驻：未知",
+}
 
 
 def _repo_root() -> Path:
@@ -1496,9 +1507,175 @@ class OpsSnapshot:
     lane_a_tech_watchlist: dict[str, Any] = field(default_factory=dict)
     # PROH-107: Lane A premarket decision transparency
     premarket: dict[str, Any] = field(default_factory=dict)
+    # PROH-159: RTH resident runner status (heartbeat.rth_runner)
+    rth_resident: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def build_rth_resident_status(
+    heartbeat: dict[str, Any] | None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Plain-Chinese panel: is the RTH sim runner supposed to be alive right now?
+
+    Consumes Engineer heartbeat ``rth_runner`` block (PROH-157). Wall-clock RTH
+    gate comes from ``core.rth`` so 休市 copy stays honest even without a file.
+    """
+    phase = session_phase(now)
+    phase_zh = {
+        "pre_open": "盘前（尚未开市）",
+        "rth": "美股常规交易时段",
+        "after_close": "已收盘",
+        "weekend": "周末休市",
+        "holiday": "假日休市",
+    }.get(phase, phase)
+
+    block: dict[str, Any] = {}
+    if isinstance(heartbeat, dict):
+        raw = heartbeat.get("rth_runner")
+        if isinstance(raw, dict):
+            block = raw
+
+    generated = None
+    age_minutes: float | None = None
+    if isinstance(heartbeat, dict):
+        generated = _parse_iso_dt(str(heartbeat.get("generated_at") or "") or None)
+        if generated is not None:
+            age_minutes = max(
+                0.0,
+                (datetime.now(timezone.utc) - generated).total_seconds() / 60.0,
+            )
+
+    opend_block: dict[str, Any] = {}
+    if isinstance(heartbeat, dict) and isinstance(heartbeat.get("opend"), dict):
+        opend_block = heartbeat["opend"]
+
+    hb_fresh = age_minutes is not None and age_minutes <= RTH_RUNNER_STALE_AFTER_MINUTES
+    disconnected = bool(block.get("opend_disconnected")) or bool(
+        opend_block.get("disconnected")
+    )
+    runner_status = str(block.get("status") or "")
+    sim_env = str(opend_block.get("env") or "simulate")
+    if sim_env and sim_env.lower() not in {"simulate", "sim", "paper", "staging"}:
+        # Never imply live from this panel.
+        sim_tag = "模拟盘"
+    else:
+        sim_tag = "模拟盘"
+
+    def _pack(
+        code: RthResidentCode,
+        *,
+        detail: str,
+        tone: str,
+        expect_running: bool,
+    ) -> dict[str, Any]:
+        return {
+            "code": code,
+            "label_zh": RTH_RESIDENT_LABEL_ZH[code],
+            "detail_zh": detail,
+            "tone": tone,
+            "expect_running": expect_running,
+            "phase": phase,
+            "phase_zh": phase_zh,
+            "sim_label_zh": sim_tag,
+            "heartbeat_age_minutes": round(age_minutes, 1) if age_minutes is not None else None,
+            "heartbeat_as_of": generated.isoformat() if generated else None,
+            "runner_status": runner_status or None,
+            "opend_disconnected": disconnected,
+            "orders_paused": bool(block.get("orders_paused")) if block else None,
+            "fills_count": block.get("fills_count"),
+            "signals_count": block.get("signals_count"),
+            "has_rth_block": bool(block),
+        }
+
+    # Outside RTH: clock alone answers "该不该有模拟单" — no false "在跑".
+    if phase != "rth":
+        detail = f"现在是{phase_zh}，不该有模拟单在跑。"
+        if block and runner_status == "idle_outside_rth":
+            detail += " 本机常驻进程已按休市空转/待命。"
+        elif not block:
+            detail += " （尚无常驻心跳文件，但不影响休市判断。）"
+        return _pack("closed", detail=detail, tone="safe", expect_running=False)
+
+    # RTH: prefer explicit disconnect signal from a fresh-ish heartbeat.
+    if block and disconnected and (hb_fresh or age_minutes is None or age_minutes <= 180):
+        return _pack(
+            "opend_down",
+            detail=(
+                f"开市中，但模拟盘 OpenD 断线——已停新单（{sim_tag}）。"
+                "请在本机确认 OpenD 已登录虚拟盘。"
+            ),
+            tone="urgent",
+            expect_running=True,
+        )
+
+    if not block:
+        return _pack(
+            "unknown",
+            detail=(
+                f"现在是{phase_zh}，按规则该有常驻模拟在跑，"
+                "但看板看不到 rth_runner 心跳——说不准有没有在跑。"
+            ),
+            tone="watch",
+            expect_running=True,
+        )
+
+    if not hb_fresh:
+        age_txt = (
+            f"约 {int(age_minutes)} 分钟前"
+            if age_minutes is not None
+            else "时间未知"
+        )
+        return _pack(
+            "unknown",
+            detail=(
+                f"开市中，但常驻心跳过旧（{age_txt}）。"
+                "可能进程已停，或本机还没同步到云端——先别当成「在跑」。"
+            ),
+            tone="watch",
+            expect_running=True,
+        )
+
+    if runner_status in {"failed", "error"}:
+        return _pack(
+            "unknown",
+            detail=f"开市中，常驻进程回报失败：{block.get('message') or runner_status}。",
+            tone="urgent",
+            expect_running=True,
+        )
+
+    if runner_status in {"rth_running", "running", "starting"} or (
+        str(block.get("phase") or "") == "rth" and not disconnected
+    ):
+        bits = [f"开市中，常驻模拟进程在跑（{sim_tag}，真下单仍关）。"]
+        if block.get("orders_paused") and not disconnected:
+            bits.append("今日暂停新单（例如空名单 / no-trade），但仍在值守。")
+        fills = block.get("fills_count")
+        signals = block.get("signals_count")
+        if fills is not None or signals is not None:
+            bits.append(
+                f"本会话信号 {signals if signals is not None else '—'} · "
+                f"成交 {fills if fills is not None else '—'}。"
+            )
+        return _pack(
+            "running",
+            detail=" ".join(bits),
+            tone="safe",
+            expect_running=True,
+        )
+
+    return _pack(
+        "unknown",
+        detail=(
+            f"开市中，有心跳但状态不好解读（status={runner_status or '—'}）。"
+            "先当未知，去本机看常驻进程。"
+        ),
+        tone="watch",
+        expect_running=True,
+    )
 
 
 def build_ops_snapshot(
@@ -1608,17 +1785,25 @@ def build_ops_snapshot(
         repo_root=root,
     )
     premarket = build_premarket_decision(config, reports_dir=rdir)
+    rth_resident = build_rth_resident_status(heartbeat)
 
     if config.trading_enabled:
         alert = "真下单总开关是开着的——请确认这是有意为之。"
     elif sync_status == "failed":
         alert = sync_error or "日报同步失败。"
-    elif sync_status == "stale":
-        alert = sync_error or "日报可能过期，请勿当成最新实况。"
     elif data_mode == "empty":
         alert = "还没有日报数据。系统在等模拟交易日产生报告。"
     elif data_mode == "demo_fixtures":
         alert = "当前仍是演示数据。本机同步虚拟盘日报后，这里会换成实况。"
+    elif rth_resident.get("code") == "opend_down":
+        alert = str(rth_resident.get("detail_zh") or "开市常驻：OpenD 断线。")
+    elif rth_resident.get("code") == "unknown" and rth_resident.get("expect_running"):
+        alert = str(
+            rth_resident.get("detail_zh")
+            or "开市中但看不到常驻心跳，说不准模拟有没有在跑。"
+        )
+    elif sync_status == "stale":
+        alert = sync_error or "日报可能过期，请勿当成最新实况。"
     elif str((report or {}).get("run_status") or "") == "failed":
         alert = str(
             (report or {}).get("run_summary")
@@ -1703,6 +1888,7 @@ def build_ops_snapshot(
         activity=activity,
         lane_a_tech_watchlist=lane_a_wl.to_dict(),
         premarket=premarket,
+        rth_resident=rth_resident,
     )
 
 

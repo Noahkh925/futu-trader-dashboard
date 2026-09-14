@@ -151,6 +151,44 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 .fresh-bar.stale, .fresh-bar.watch { border-left: 4px solid #b7791f; background: #fffaf0; }
 .fresh-bar.failed, .fresh-bar.urgent { border-left: 4px solid #c53030; background: #fff5f5; }
 .fresh-bar.empty { border-left: 4px solid #718096; }
+.rth-bar {
+  border-radius: 6px;
+  padding: 0.75rem 0.95rem;
+  margin: 0 0 0.7rem;
+  border: 1px solid #cfd8e0;
+  background: #fff;
+}
+.rth-bar.safe { border-left: 4px solid #1a7f4b; background: #f3faf6; }
+.rth-bar.watch { border-left: 4px solid #b7791f; background: #fffaf0; }
+.rth-bar.urgent { border-left: 4px solid #c53030; background: #fff5f5; }
+.rth-bar .rth-kicker {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5a6a78;
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+}
+.rth-bar .rth-label {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f1c24;
+  line-height: 1.3;
+}
+.rth-bar .rth-detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #3a4a56;
+  line-height: 1.45;
+}
+.rth-bar .rth-meta {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: #5a6a78;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
 .lane-card {
   background: #fff;
   border-radius: 6px;
@@ -429,6 +467,7 @@ div[data-testid="stAlert"] { border-radius: 6px; }
 
 @media (max-width: 768px) {
   .ops-hero h2 { font-size: 1.18rem; }
+  .rth-bar .rth-label { font-size: 1.05rem; }
   .pnl-big { font-size: 1.5rem; }
   .pm-panel h3 { font-size: 1.05rem; }
   section.main > div { padding-left: 0.3rem; padding-right: 0.3rem; }
@@ -476,6 +515,13 @@ def _worry(snap: OpsSnapshot) -> tuple[str, str]:
         return "urgent", "要担心：真钱通道开着"
     if snap.sync_status == "failed":
         return "urgent", "要担心：日报同步失败"
+    rth = snap.rth_resident or {}
+    # Demo/empty: keep calm copy; RTH bar still shows resident state separately.
+    if snap.data_mode not in {"demo_fixtures", "empty"}:
+        if rth.get("code") == "opend_down":
+            return "urgent", "要担心：开市中 OpenD 断线"
+        if rth.get("code") == "unknown" and rth.get("expect_running"):
+            return "watch", "留意一下：开市常驻状态未知"
     if snap.sync_status == "stale":
         return "watch", "留意一下：数据可能过期"
     if snap.data_mode == "empty":
@@ -804,6 +850,44 @@ def _render_freshness(snap: OpsSnapshot) -> None:
         )
     elif status == "stale" and snap.hosting_mode == "cloud":
         st.caption("「截至时间旧」表示快照可能过期，不是网页坏了。")
+
+
+def _render_rth_resident(snap: OpsSnapshot) -> None:
+    """PROH-159: plain-Chinese RTH resident / heartbeat status."""
+    rth = snap.rth_resident or {}
+    code = str(rth.get("code") or "unknown")
+    tone = str(rth.get("tone") or "watch")
+    if tone not in {"safe", "watch", "urgent"}:
+        tone = "watch"
+    label = html.escape(str(rth.get("label_zh") or "开市常驻：未知"))
+    detail = html.escape(str(rth.get("detail_zh") or "暂无常驻状态。"))
+    meta_bits: list[str] = []
+    if rth.get("sim_label_zh"):
+        meta_bits.append(html.escape(str(rth["sim_label_zh"])))
+    if rth.get("phase_zh"):
+        meta_bits.append(html.escape(str(rth["phase_zh"])))
+    if rth.get("heartbeat_as_of"):
+        meta_bits.append(
+            f"心跳 {html.escape(format_last_updated_zh(rth.get('heartbeat_as_of')))}"
+        )
+    meta = " · ".join(meta_bits)
+    meta_html = f'<div class="rth-meta">{meta}</div>' if meta else ""
+    st.markdown(
+        f"""
+<div class="rth-bar {tone}" role="status" aria-label="{label}">
+  <div class="rth-kicker">现在该不该有模拟单</div>
+  <p class="rth-label">{label}</p>
+  <p class="rth-detail">{detail}</p>
+  {meta_html}
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    if code == "unknown" and rth.get("expect_running"):
+        st.caption(
+            "开市时段若长期「未知」：先看本机是否开机、OpenD 是否登录模拟盘、"
+            "常驻任务是否在跑；云看板只读心跳，不能替你拉起进程。"
+        )
 
 
 def _render_q_safe(snap: OpsSnapshot) -> None:
@@ -1318,6 +1402,7 @@ def _render_ops_home(*, readonly: bool = False) -> bool:
     elif snap.data_mode == "empty":
         st.info("还没有可读的日报。同步或跑完模拟日后会出现在这里。")
 
+    _render_rth_resident(snap)
     _render_q_safe(snap)
     _render_premarket(snap)
     _render_lane_a_tech_watchlist(snap)
@@ -1338,6 +1423,8 @@ def _render_ops_home(*, readonly: bool = False) -> bool:
         st.markdown(
             """
 - **真下单总开关**：关着就不会真钱下单。这个网页**不能**把它打开。
+- **开市常驻**：美股开市时段是否在本机常驻跑模拟
+  （在跑 / 休市 / OpenD 断线 / 未知）。不是「收盘批处理有没有跑过」。
 - **今天安全吗**：一眼结论 + 有没有要留意的事。
 - **今天选了谁**：今天打算交易谁 / 不交易；细节可在「名单细节」展开。
 - **最近一天赚亏多少**：最近一个交易日两条路线合计。
@@ -1361,6 +1448,12 @@ def _render_ops_home(*, readonly: bool = False) -> bool:
             st.write(f"连接标记：`{snap.opend_mode or '—'}`")
             st.write(f"同步状态：`{snap.sync_status}`")
             st.write(f"健康提示：{snap.health_hint_zh}")
+            rth = snap.rth_resident or {}
+            st.write(
+                f"开市常驻：`{rth.get('code')}` · "
+                f"phase=`{rth.get('phase') or '—'}` · "
+                f"runner=`{rth.get('runner_status') or '—'}`"
+            )
             st.write(f"持仓条数：{len(snap.positions or [])}")
             pm = snap.premarket or {}
             st.write(
