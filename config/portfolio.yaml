@@ -4,6 +4,12 @@ lane_b_ratio: 0.30
 trading_enabled: false
 allow_production_live: false
 experiment_id: baseline
+# T3 traffic switches (ADR-0001). Legacy remains Noah's default until cutover.
+runtime:
+  active_kernel: legacy
+  dual_run: true
+  report_publish_source: legacy
+  api_read_preference: legacy
 costs:
   commission_per_share: 0.0
   commission_per_contract: 0.0

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>作战台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div id="gate" class="gate hidden" aria-label="密码门">
+    <h1>作战台</h1>
+    <p>输入密码后查看；此页不会改真下单开关。</p>
+    <input id="gate-password" type="password" autocomplete="current-password" placeholder="密码" />
+    <button type="button" id="gate-submit">进入</button>
+    <div id="gate-error" class="err hidden"></div>
+  </div>
+
+  <div id="app" class="wrap hidden">
+    <nav class="nav" aria-label="主导航">
+      <button type="button" class="active" data-page="overview">总览</button>
+      <button type="button" data-page="strategy">策略</button>
+      <button type="button" data-page="market">市场</button>
+      <button type="button" data-page="review">复盘</button>
+    </nav>
+
+    <p id="status-line" class="status-line" aria-live="polite"></p>
+
+    <section id="page-overview">
+      <header class="header">
+        <div class="brand">
+          作战台
+          <span class="sub">只读监盘</span>
+        </div>
+        <div class="meta">
+          <span id="env-pill" class="pill">—</span>
+          <span id="dual-pill" class="pill dual hidden">双跑对照中</span>
+          <span id="as-of">数据截至 —</span>
+        </div>
+      </header>
+
+      <div id="demo-banner" class="banner hidden" role="status"></div>
+      <div id="alert-banner" class="banner risk hidden" role="alert"></div>
+
+      <section id="verdict" class="verdict" aria-label="安全结论">
+        <p class="kicker">今天安全吗</p>
+        <h1 id="verdict-title">加载中…</h1>
+        <p id="verdict-detail"></p>
+      </section>
+
+      <!-- Kill switch is display-only. Never render a toggle / checkbox here. -->
+      <section id="kill" class="kill" aria-label="真下单总开关（只读）">
+        <span id="kill-label">真下单总开关：—</span>
+        <span class="hint" id="kill-hint">只读 · 本页不能打开</span>
+      </section>
+
+      <section class="band" aria-label="练兵与赚亏">
+        <div class="panel">
+          <h2>练兵进度</h2>
+          <div class="progress-num" id="drill-num">— / —</div>
+          <div class="bar" aria-hidden="true"><span id="drill-bar" style="width:0%"></span></div>
+          <p class="progress-meta" id="drill-meta">—</p>
+        </div>
+        <div class="panel">
+          <h2>最近一天赚亏</h2>
+          <div class="pnl flat" id="pnl-total">—</div>
+          <p class="pnl-split" id="pnl-split">A — · B —</p>
+          <p class="pnl-split" id="pnl-date"></p>
+        </div>
+      </section>
+
+      <section class="lanes" aria-label="双路状态" id="lanes"></section>
+
+      <section id="fresh" class="fresh" aria-label="新鲜度">
+        <span id="fresh-label">数据新鲜度 · —</span>
+        <span>
+          <button type="button" id="btn-refresh">手动刷新</button>
+          <span style="margin-left:8px;color:var(--muted);font-size:0.82rem;" id="auto-label">自动刷新：开</span>
+        </span>
+      </section>
+
+      <p class="fold-hint">首屏以下（次级，默认折叠）</p>
+      <details>
+        <summary>持仓摘要</summary>
+        <div id="sec-positions"><p>今天暂无持仓明细。</p></div>
+      </details>
+      <details>
+        <summary>最近成交 · 异常停手</summary>
+        <div id="sec-activity"><p>—</p></div>
+      </details>
+      <details>
+        <summary>技术细节</summary>
+        <pre id="sec-tech" style="white-space:pre-wrap;font-family:IBM Plex Mono,monospace;font-size:0.78rem;margin:8px 0 0;"></pre>
+      </details>
+    </section>
+
+    <section id="page-strategy" class="hidden" aria-label="策略">
+      <header class="header">
+        <div class="brand">
+          策略
+          <span class="sub">透明因果 · 调参共驾</span>
+        </div>
+        <div class="meta">
+          <span id="strat-session" class="pill">—</span>
+        </div>
+      </header>
+
+      <section class="verdict" aria-label="今日一句话">
+        <p class="kicker">系统在干什么</p>
+        <h1 id="strat-one-liner">加载中…</h1>
+        <p>每笔决策按「规则 → 证据 → 结论」展示；调参只进练兵，碰不到真钱。</p>
+      </section>
+
+      <section class="strat-block" aria-label="今天为什么买卖">
+        <h2 class="strat-h2">今天为什么买卖</h2>
+        <div id="decision-list" class="decision-list"></div>
+      </section>
+
+      <section class="strat-block" aria-label="当前参数">
+        <h2 class="strat-h2">当前参数（只读摘要）</h2>
+        <p id="param-source" class="param-source"></p>
+        <div id="param-summary" class="param-summary"></div>
+      </section>
+
+      <section class="strat-block" aria-label="调参共驾">
+        <h2 class="strat-h2">调参共驾</h2>
+        <p class="disclaimer" id="param-disclaimer">调参只会进练兵环境（paper/staging），不会碰到真钱。</p>
+        <form id="param-form" class="param-form" autocomplete="off">
+          <label>实验 ID
+            <input name="experiment_id" type="text" />
+          </label>
+          <label>A 仓位上限（0–1）
+            <input name="max_position_pct" type="number" step="0.01" min="0" max="1" />
+          </label>
+          <label>A 日亏上限（0–1）
+            <input name="max_daily_loss_pct" type="number" step="0.01" min="0" max="1" />
+          </label>
+          <label>A 单笔亏上限（0–1）
+            <input name="max_loss_per_trade_pct" type="number" step="0.01" min="0" max="1" />
+          </label>
+          <label>B 名义本金上限（0–1）
+            <input name="lane_b_max_notional_pct" type="number" step="0.01" min="0" max="1" />
+          </label>
+          <label>B 日亏限额（$）
+            <input name="lane_b_daily_loss_limit" type="number" step="1" min="0" />
+          </label>
+          <label>B 事件亏限额（$）
+            <input name="lane_b_max_event_loss" type="number" step="1" min="0" />
+          </label>
+          <label>名单（逗号分隔，可选）
+            <input name="watchlist_symbols_text" type="text" placeholder="US.QQQ, US.AAPL" />
+          </label>
+          <label>备注
+            <input name="note" type="text" placeholder="例如：仓位上限收紧" />
+          </label>
+          <label>因果摘要（人话）
+            <input name="causal_summary" type="text" placeholder="改了什么 / 为何" />
+          </label>
+          <div class="form-actions">
+            <button type="submit" id="btn-save-params" class="btn primary">保存到练兵环境</button>
+            <button type="button" id="btn-rollback" class="btn">回滚上一版本</button>
+          </div>
+        </form>
+        <p id="param-msg" class="param-msg" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="strat-block" aria-label="版本队列">
+        <h2 class="strat-h2">staging 版本队列</h2>
+        <div id="version-list" class="version-list"></div>
+      </section>
+    </section>
+
+    <section id="page-market" class="hidden" aria-label="市场">
+      <header class="header">
+        <div class="brand">
+          市场
+          <span class="sub">持仓/候选脉搏 · 告警</span>
+        </div>
+        <div class="meta">
+          <span id="market-env" class="pill">—</span>
+          <span id="market-session" class="pill">—</span>
+        </div>
+      </header>
+
+      <div id="market-demo" class="banner hidden" role="status"></div>
+
+      <section class="verdict" aria-label="今天该留意什么">
+        <p class="kicker">今天该留意什么</p>
+        <h1 id="market-one-liner">加载中…</h1>
+        <p>只围绕持仓与候选，不做全市场噪音。</p>
+      </section>
+
+      <section class="strat-block" aria-label="告警收件箱">
+        <h2 class="strat-h2">告警收件箱</h2>
+        <p id="alert-counts" class="progress-meta"></p>
+        <div id="alert-inbox" class="alert-inbox"></div>
+      </section>
+
+      <section class="strat-block" aria-label="持仓与候选脉搏">
+        <h2 class="strat-h2">持仓与候选脉搏</h2>
+        <p id="watchlist-meta" class="progress-meta"></p>
+        <div id="pulse-list" class="pulse-list"></div>
+      </section>
+
+      <details class="ref-fold">
+        <summary>参考指数（次级）</summary>
+        <p id="ref-indices" class="empty">参考指数非本页主线；当前不做全市场噪音。</p>
+      </details>
+    </section>
+
+    <section id="page-review" class="hidden" aria-label="复盘">
+      <header class="header">
+        <div class="brand">
+          复盘
+          <span class="sub">日复盘一页纸</span>
+        </div>
+        <div class="meta">
+          <label class="date-pick">
+            交易日
+            <select id="review-date" aria-label="选择交易日"></select>
+          </label>
+        </div>
+      </header>
+
+      <div id="review-demo" class="banner hidden" role="status"></div>
+      <p id="review-empty" class="empty hidden"></p>
+
+      <section id="review-sheet" class="hidden" aria-label="一页纸">
+        <section class="verdict" aria-label="当日结论">
+          <p class="kicker">昨天怎样</p>
+          <h1 id="review-headline">—</h1>
+          <p id="review-drill"></p>
+        </section>
+
+        <section class="band" aria-label="赚亏">
+          <div class="panel">
+            <h2>当日赚亏</h2>
+            <div class="pnl flat" id="review-pnl">—</div>
+            <p class="pnl-split" id="review-pnl-split">A — · B —</p>
+          </div>
+          <div class="panel">
+            <h2>练兵判定</h2>
+            <div class="progress-num" id="review-counts">—</div>
+            <p class="progress-meta" id="review-excluded"></p>
+          </div>
+        </section>
+
+        <section class="lanes" id="review-lanes" aria-label="双路"></section>
+
+        <section class="strat-block" aria-label="停手">
+          <h2 class="strat-h2">停手原因</h2>
+          <div id="review-halts"></div>
+        </section>
+
+        <section class="strat-block" aria-label="成交摘要">
+          <h2 class="strat-h2">成交摘要</h2>
+          <div id="review-fills"></div>
+        </section>
+      </section>
+
+      <section class="strat-block" aria-label="练兵日历">
+        <h2 class="strat-h2">练兵日历条</h2>
+        <div id="review-calendar" class="cal-strip"></div>
+      </section>
+
+      <section class="strat-block" aria-label="导出摘要">
+        <h2 class="strat-h2">导出 / 复制摘要</h2>
+        <p id="copy-hint" class="progress-meta"></p>
+        <pre id="review-summary" class="summary-box"></pre>
+        <button type="button" id="btn-copy-summary" class="btn">复制中文摘要</button>
+        <p id="copy-msg" class="param-msg" role="status"></p>
+      </section>
+    </section>
+
+    <section id="page-placeholder" class="placeholder hidden">
+      <p id="placeholder-text">后续 Stage 落地</p>
+    </section>
+  </div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
