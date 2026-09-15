@@ -1,6 +1,10 @@
 {
-  "updated_at": "2026-09-15T06:25:51.773299+00:00",
-  "dates": [],
+  "updated_at": "2026-09-15T06:26:10.536975+00:00",
+  "dates": [
+    "2024-07-30",
+    "2026-09-09",
+    "2026-09-10"
+  ],
   "note": "Synced from local OpenD virtual-disk staging runs",
   "lane_a_tech_watchlist": "lane_a/tech_watchlist.json",
   "lane_a_tech_watchlist_hk": "lane_a/hk/tech_watchlist.json",
