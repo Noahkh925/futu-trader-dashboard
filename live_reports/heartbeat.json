@@ -1,0 +1,329 @@
+{
+  "schema": "ops_hourly_heartbeat/v2",
+  "generated_at": "2026-09-15T06:23:06+00:00",
+  "opend": {
+    "host": "127.0.0.1",
+    "port": 11111,
+    "reachable": true,
+    "env": "staging",
+    "disconnected": false
+  },
+  "quote": {
+    "symbol": "US.QQQ",
+    "last_price": 709.18,
+    "source": "futu"
+  },
+  "trading_enabled": false,
+  "note": "Dual-market RTH sim runner heartbeat. Paper/simulate only — trading_enabled stays false. US/HK capital pools are isolated (no cross-pool transfer).",
+  "active_market": "HK",
+  "us_capital_snapshot": null,
+  "hk_capital_snapshot": {
+    "total": 5000.0,
+    "lane_a": 3500.0,
+    "lane_b": 1500.0
+  },
+  "markets": {
+    "HK": {
+      "market": "HK",
+      "phase": "rth",
+      "status": "rth_running",
+      "session_date": "2026-09-15",
+      "orders_paused": false,
+      "opend_disconnected": false,
+      "opend_mode": "opend",
+      "bars_seen": 28,
+      "fills_count": 0,
+      "signals_count": 28,
+      "lane_a_state": "HUNT",
+      "lane_b_state": "IDLE",
+      "lane_a_no_trade_day": false,
+      "lane_a_no_trade_reason": null,
+      "lane_a_watchlist_path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_a\\hk\\tech_watchlist.json",
+      "lane_b_news_events_seen": 0,
+      "lane_b_news_deploys": 0,
+      "ticks": 29,
+      "pid": 27080,
+      "message": "HK RTH tick=29 bars=28 fills=0 quote=futu",
+      "alerts": [
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:14:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:15:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:16:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:17:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:18:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:19:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:20:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:21:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:22:05+00:00"
+        },
+        {
+          "severity": "watch",
+          "source": "lane_b_news_event",
+          "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+          "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+          "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+          "ts": "2026-09-15T06:23:06+00:00"
+        }
+      ],
+      "capital_snapshot": {
+        "total": 5000.0,
+        "lane_a": 3500.0,
+        "lane_b": 1500.0
+      },
+      "trading_enabled": false
+    }
+  },
+  "rth_runner": {
+    "market": "HK",
+    "phase": "rth",
+    "status": "rth_running",
+    "session_date": "2026-09-15",
+    "orders_paused": false,
+    "opend_disconnected": false,
+    "opend_mode": "opend",
+    "bars_seen": 28,
+    "fills_count": 0,
+    "signals_count": 28,
+    "lane_a_state": "HUNT",
+    "lane_b_state": "IDLE",
+    "lane_a_no_trade_day": false,
+    "lane_a_no_trade_reason": null,
+    "lane_a_watchlist_path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_a\\hk\\tech_watchlist.json",
+    "lane_b_news_events_seen": 0,
+    "lane_b_news_deploys": 0,
+    "ticks": 29,
+    "pid": 27080,
+    "message": "HK RTH tick=29 bars=28 fills=0 quote=futu",
+    "alerts": [
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:14:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:15:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:16:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:17:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:18:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:19:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:20:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:21:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:22:05+00:00"
+      },
+      {
+        "severity": "watch",
+        "source": "lane_b_news_event",
+        "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+        "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+        "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+        "ts": "2026-09-15T06:23:06+00:00"
+      }
+    ],
+    "capital_snapshot": {
+      "total": 5000.0,
+      "lane_a": 3500.0,
+      "lane_b": 1500.0
+    },
+    "trading_enabled": false
+  },
+  "alerts": [
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:14:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:15:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:16:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:17:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:18:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:19:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:20:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:21:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:22:05+00:00"
+    },
+    {
+      "severity": "watch",
+      "source": "lane_b_news_event",
+      "reason_zh": "B路新闻事件文件无效：schema_version must be 'lane_b_news_event_1.0', got '1.0'",
+      "next_zh": "检查 schema lane_b_news_event_1.0；不会自动下单。",
+      "path": "C:\\Users\\noahk\\futu-trader\\logs\\lane_b\\hk\\news_events\\2026-09-15.json",
+      "ts": "2026-09-15T06:23:06+00:00"
+    }
+  ]
+}

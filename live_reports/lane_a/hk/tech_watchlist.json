@@ -1,0 +1,155 @@
+{
+  "schema_version": "lane_a_tech_1.0",
+  "as_of": "2026-09-15",
+  "universe_note": "HK Lane A pre-open technical screen. Universe: liquid HKEX names HK.00700/09988/03690/01810/09618/02800. Filters: market=HK; timezone=Asia/Hong_Kong; max_universe_names<=3; min_price>=5 HKD; 20d avg dollar volume (HKD) >= 1e9; empty/bad/as_of mismatch → no_trade_day (never fallback HK.00700 or US.QQQ). ORB anchor = 09:30 HKT continuous open. Research pull mid-session 2026-09-15 HKT; gap = session open vs prior close.",
+  "timezone": "Asia/Hong_Kong",
+  "generated_by": "analyst-pl / PROH-188 / autopilot:lane-a-tech-premarket-hk",
+  "market": "HK",
+  "names": [
+    {
+      "symbol": "HK.09988",
+      "score": 9.5,
+      "veto": false,
+      "reasons": [
+        "20d avg dollar volume ~1.05e10 HKD; last_price 107.9 HKD passes min_price>=5",
+        "gap_pct ~+1.04 vs prior close (open 107.0 / prior 105.9); atr_pct ~2.99 — ORB-friendly liquid large-cap"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 9988.HK (research pull 2026-09-15T05:26Z)",
+        "HKEX holiday calendar 2026 (2026-09-15 weekday, not a full-day holiday)",
+        "config/portfolio.virtual.hk.yaml lane_a.max_universe_names=3; empty_universe_policy=no_trade"
+      ],
+      "last_price": 107.9,
+      "avg_volume": 92377091,
+      "avg_dollar_volume": 10512917876,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": 1.04,
+      "atr_pct": 2.99,
+      "relative_volume": 0.28,
+      "regime_tag": "liquid_large_cap",
+      "market": "HK",
+      "reason": "Alibaba-SW: liquid; mild gap up; gates pass"
+    },
+    {
+      "symbol": "HK.02800",
+      "score": 8.8,
+      "veto": false,
+      "reasons": [
+        "20d avg dollar volume ~1.52e10 HKD; last_price 25.44 HKD passes min_price>=5",
+        "gap_pct ~+0.71 (open 25.6 / prior 25.42); atr_pct ~1.29 — highest ADV beta proxy in screen"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 2800.HK (research pull 2026-09-15T05:26Z)",
+        "config/portfolio.virtual.hk.yaml"
+      ],
+      "last_price": 25.44,
+      "avg_volume": 586160977,
+      "avg_dollar_volume": 15240247833,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": 0.71,
+      "atr_pct": 1.29,
+      "relative_volume": 0.38,
+      "regime_tag": "liquid_large_cap",
+      "market": "HK",
+      "reason": "Tracker Fund: liquid HSI beta; mild gap up; gates pass"
+    },
+    {
+      "symbol": "HK.00700",
+      "score": 8.5,
+      "veto": false,
+      "reasons": [
+        "20d avg dollar volume ~8.01e9 HKD; last_price 442.0 HKD passes min_price>=5",
+        "gap_pct ~-0.60 (open 428.0 / prior 430.6); atr_pct ~2.37 — liquid large-cap with modest open gap"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 0700.HK (research pull 2026-09-15T05:26Z)",
+        "config/portfolio.virtual.hk.yaml"
+      ],
+      "last_price": 442.0,
+      "avg_volume": 18104951,
+      "avg_dollar_volume": 8006472821,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": -0.6,
+      "atr_pct": 2.37,
+      "relative_volume": 0.73,
+      "regime_tag": "liquid_large_cap",
+      "market": "HK",
+      "reason": "Tencent: liquid; mild gap down; gates pass"
+    },
+    {
+      "symbol": "HK.03690",
+      "score": 6.07,
+      "veto": false,
+      "reasons": [
+        "20d avg dollar volume ~3.15e9 HKD; last_price 75.55 HKD passes min_price",
+        "gap_pct ~+1.27; atr_pct ~3.66 — liquid but ranked below max_universe_names=3 cut"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 3690.HK (research pull 2026-09-15T05:26Z)",
+        "config/portfolio.virtual.hk.yaml"
+      ],
+      "last_price": 75.55,
+      "avg_volume": 39683556,
+      "avg_dollar_volume": 3146246952,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": 1.27,
+      "atr_pct": 3.66,
+      "relative_volume": 0.18,
+      "regime_tag": "high_vol",
+      "market": "HK",
+      "reason": "Meituan: gates pass; outside top-3 by score"
+    },
+    {
+      "symbol": "HK.01810",
+      "score": 4.91,
+      "veto": false,
+      "reasons": [
+        "20d avg dollar volume ~3.82e9 HKD; last_price 26.96 HKD passes min_price",
+        "gap_pct ~-0.15 (near-flat open); atr_pct ~3.70 — liquid but weak overnight signal vs peers"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 1810.HK (research pull 2026-09-15T05:26Z)",
+        "config/portfolio.virtual.hk.yaml"
+      ],
+      "last_price": 26.96,
+      "avg_volume": 138724352,
+      "avg_dollar_volume": 3820891636,
+      "min_price_ok": true,
+      "adv_ok": true,
+      "gap_pct": -0.15,
+      "atr_pct": 3.7,
+      "relative_volume": 0.28,
+      "regime_tag": "high_vol",
+      "market": "HK",
+      "reason": "Xiaomi: gates pass; flat gap → lower ORB priority"
+    },
+    {
+      "symbol": "HK.09618",
+      "score": 4.0,
+      "veto": true,
+      "reasons": [
+        "20d avg dollar volume ~8.15e8 HKD below screen floor 1e9 HKD → adv_ok=false",
+        "listed for audit only; must not enter HK Lane A deployable universe"
+      ],
+      "sources": [
+        "Yahoo Finance daily bars 9618.HK (research pull 2026-09-15T05:26Z)",
+        "PROH-176/PROH-188 screen floor: avg_dollar_volume_hkd >= 1e9"
+      ],
+      "last_price": 106.7,
+      "avg_volume": 7398263,
+      "avg_dollar_volume": 814809690,
+      "min_price_ok": true,
+      "adv_ok": false,
+      "gap_pct": 0.57,
+      "atr_pct": 2.23,
+      "relative_volume": 0.2,
+      "regime_tag": "below_adv_floor",
+      "market": "HK",
+      "reason": "FAIL-CLOSED: ADV below 1e9 HKD floor"
+    }
+  ]
+}

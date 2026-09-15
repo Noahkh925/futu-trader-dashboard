@@ -1,10 +1,9 @@
 {
-  "dates": [
-    "2026-09-09",
-    "2026-09-10"
-  ],
-  "updated_at": "2026-09-15T05:55:31.1836107Z",
-  "drill_day": 0,
-  "note": "Pre-epoch US days retained for history; promotion.epoch_start=2026-09-15 excludes them from drill streak (day 0).",
-  "epoch_start": "2026-09-15"
+  "updated_at": "2026-09-15T06:23:55.451366+00:00",
+  "dates": [],
+  "note": "Synced from local OpenD virtual-disk staging runs",
+  "lane_a_tech_watchlist": "lane_a/tech_watchlist.json",
+  "lane_a_tech_watchlist_hk": "lane_a/hk/tech_watchlist.json",
+  "heartbeat": "heartbeat.json",
+  "lane_b_day_watchlist_hk": "lane_b/hk/day_watchlist.json"
 }

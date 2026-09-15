@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-09-15",
+  "market": "HK",
+  "lane": "B",
+  "session_date": "2026-09-15",
+  "symbols": [],
+  "rationale": "HK securities market is open (not a holiday). ETNet results calendar for 2026-09-15 only lists Clarity Medical (01406), which fails Lane B liquidity/options filters. Trip.com (09961) has a verified dual-listed print (US AMC 2026-09-15 / HK BMO 2026-09-16) but the HK session print is tomorrow; HK options tradability for Lane B was not verified, so it is audit-only / deferred, not approved for today's symbols[].",
+  "empty_reason": "信号不足：当日港股业绩日历无合格 Lane B 候选（唯一日历名 01406 流动性/期权不足；携程 09961 港股刊发为 2026-09-16 BMO，且港股期权可交易性未核实）→ no_trade",
+  "universe_note": "HK Lane B premarket 2026-09-15; earnings/event framework adapted from US Lane B; require liquid HK names with verified earnings timing; no invented prices or dates; paper/staging only.",
+  "names": [
+    {
+      "symbol": "HK.01406",
+      "earnings_at": "2026-09-15",
+      "session": "unknown",
+      "score": 0.05,
+      "veto": true,
+      "reasons": [
+        "ETNet lists final/interim result announcements dated 2026-09-15",
+        "Micro-cap (~HK$192M) with near-zero avg volume — fails Lane B liquidity",
+        "Not a credible options-event name for HK Lane B"
+      ],
+      "sources": [
+        "https://www.etnet.com.hk/www/eng/stocks/ci_cal_result.php",
+        "yfinance:1406.HK"
+      ],
+      "market": "HK",
+      "options_tradable": false,
+      "last_price": 0.355,
+      "avg_volume": 0,
+      "reason": "Veto: illiquid micro-cap results print; not Lane B grade"
+    },
+    {
+      "symbol": "HK.09961",
+      "earnings_at": "2026-09-16",
+      "session": "bmo",
+      "score": 0.72,
+      "veto": true,
+      "reasons": [
+        "Verified dual listing print: US AMC 2026-09-15 / HK BMO 2026-09-16 per company 6-K / HKEX notice",
+        "Liquid large-cap (yfinance ~HK$311.8, avg volume ~3.0M) but HK session print is 2026-09-16 — outside session_date 2026-09-15 runner window",
+        "HK stock-options tradability for Lane B not verified → do not approve for today's symbols[]"
+      ],
+      "sources": [
+        "https://www.stocktitan.net/sec-filings/TCOM/6-k-trip-com-group-ltd-current-report-foreign-issuer-36de03e35672.html",
+        "https://www.etnet.com.hk/www/eng/stocks/ci_cal_result.php",
+        "yfinance:9961.HK"
+      ],
+      "market": "HK",
+      "options_tradable": false,
+      "last_price": 311.8,
+      "avg_volume": 3025012,
+      "reason": "Veto for 2026-09-15 session: HK BMO print is 2026-09-16; options filter unverified"
+    }
+  ]
+}
