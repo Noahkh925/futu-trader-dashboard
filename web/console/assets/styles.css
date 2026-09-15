@@ -290,6 +290,62 @@ body {
   color: #8a1f1f;
 }
 
+.rth-bar {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--idle);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.rth-bar.safe {
+  background: var(--safe-bg);
+  border-left-color: var(--safe);
+}
+
+.rth-bar.watch {
+  background: var(--watch-bg);
+  border-left-color: var(--watch);
+}
+
+.rth-bar.urgent {
+  background: var(--risk-bg);
+  border-left-color: var(--risk);
+}
+
+.rth-bar .kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.rth-bar .rth-label {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.rth-bar .rth-detail {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: #3a4a56;
+  line-height: 1.45;
+}
+
+.rth-bar .rth-meta {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+}
+
 .verdict {
   background: var(--safe-bg);
   border: 1px solid var(--line);
@@ -876,6 +932,7 @@ summary {
   .lanes { grid-template-columns: 1fr; }
   .wrap { padding: 16px; }
   .verdict h1 { font-size: 1.18rem; }
+  .rth-bar .rth-label { font-size: 1.02rem; }
   .pnl { font-size: 1.5rem; }
   .decision .triple,
   .param-form,

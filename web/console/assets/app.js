@@ -132,6 +132,20 @@
       alert.classList.add("hidden");
     }
 
+    const rth = data.rth_resident || {};
+    const rthEl = document.getElementById("rth-resident");
+    if (rthEl) {
+      const tone =
+        rth.tone === "safe" || rth.tone === "urgent" || rth.tone === "watch"
+          ? rth.tone
+          : "watch";
+      rthEl.className = "rth-bar " + tone;
+      setText("rth-kicker", rth.kicker_zh || "现在该不该有模拟单");
+      setText("rth-label", rth.label_zh || "开市常驻：未知");
+      setText("rth-detail", rth.detail_zh || "");
+      setText("rth-meta", rth.meta_zh || "");
+    }
+
     const verdict = document.getElementById("verdict");
     verdict.className = "verdict";
     if (level === "watch" || level === "urgent") {
@@ -223,6 +237,7 @@
       hosting_mode: fr.hosting_mode,
       opend_mode: fr.opend_mode,
       sync_status: fr.sync_status,
+      rth_resident: rth.code || null,
       dual_run: data.dual_run || null,
       kill_writable: !!(data.kill_switch && data.kill_switch.writable),
     };

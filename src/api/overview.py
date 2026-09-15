@@ -55,6 +55,12 @@ def _worry(snap: OpsSnapshot) -> tuple[str, str]:
         return "urgent", "要担心：真钱通道开着"
     if snap.sync_status == "failed":
         return "urgent", "要担心：日报同步失败"
+    rth = snap.rth_resident or {}
+    if snap.data_mode not in {"demo_fixtures", "empty"}:
+        if rth.get("code") == "opend_down":
+            return "urgent", "要担心：开市中 OpenD 断线"
+        if rth.get("code") == "unknown" and rth.get("expect_running"):
+            return "watch", "留意一下：开市常驻状态未知"
     if snap.sync_status == "stale":
         return "watch", "留意一下：数据可能过期"
     if snap.data_mode == "empty":
@@ -64,6 +70,35 @@ def _worry(snap: OpsSnapshot) -> tuple[str, str]:
     if snap.last_halts:
         return "watch", "留意一下：最近有停手记录"
     return "calm", "今天安全：真下单仍关着"
+
+
+def _rth_resident_view(snap: OpsSnapshot) -> dict[str, Any]:
+    """Project OpsSnapshot.rth_resident for the console SPA (PROH-159)."""
+    rth = snap.rth_resident if isinstance(snap.rth_resident, dict) else {}
+    code = str(rth.get("code") or "unknown")
+    tone = str(rth.get("tone") or "watch")
+    if tone not in {"safe", "watch", "urgent"}:
+        tone = "watch"
+    label = str(rth.get("label_zh") or "开市常驻：未知")
+    detail = str(rth.get("detail_zh") or "暂无常驻状态。")
+    meta_bits: list[str] = []
+    if rth.get("sim_label_zh"):
+        meta_bits.append(str(rth["sim_label_zh"]))
+    if rth.get("phase_zh"):
+        meta_bits.append(str(rth["phase_zh"]))
+    hb = rth.get("heartbeat_as_of")
+    if hb:
+        meta_bits.append(f"心跳 {format_last_updated_zh(hb)}")
+    return {
+        "code": code,
+        "tone": tone,
+        "label_zh": label,
+        "detail_zh": detail,
+        "meta_zh": " · ".join(meta_bits),
+        "expect_running": bool(rth.get("expect_running")),
+        "kicker_zh": "现在该不该有模拟单",
+        "sim_label_zh": str(rth.get("sim_label_zh") or "模拟盘"),
+    }
 
 
 def _lane_tone(state: str) -> str:
@@ -192,6 +227,7 @@ def build_overview_view(
             # Explicit: UI must never render a write control for this.
             "writable": False,
         },
+        "rth_resident": _rth_resident_view(snap),
         "drill": {
             "counting_streak": int(snap.counting_streak),
             "required_n": int(snap.required_n),
