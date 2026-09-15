@@ -36,6 +36,17 @@ futu-dashboard = "dashboard.app:main"
 futu-ops-export = "dashboard.ops_export:main"
 futu-hourly-ops = "dashboard.hourly:main"
 futu-console = "api.app:main"
+futu-paper-day = "paper.session:main"
+futu-paper-lane-b = "paper.lane_b_session:main"
+futu-staging-day = "staging.harness:main"
+futu-unattended-day = "staging.unattended:main"
+futu-rth-runner = "staging.rth_runner:main"
+futu-t3-day = "kernel.runner:main"
+futu-dual-run = "kernel.dual_run:main"
+futu-promotion-check = "research.promotion:main"
+futu-attribution = "research.attribution:main"
+futu-oos = "research.oos:main"
+futu-params = "params.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

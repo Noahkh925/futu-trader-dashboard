@@ -1,0 +1,10 @@
+{
+  "schema_version": "day_watchlist_1.0",
+  "market": "US",
+  "lane": "B",
+  "session_date": "2026-09-15",
+  "symbols": [],
+  "empty_reason": "无合格重大新闻/财报事件候选",
+  "rationale": "PROH-187 Lane B empty fixture",
+  "generated_by": "proh-187-fixture"
+}

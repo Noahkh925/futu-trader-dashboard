@@ -276,6 +276,7 @@ def build_market_view(snap: OpsSnapshot) -> dict[str, Any]:
         "product": "作战台",
         "page": "市场",
         "subtitle": "持仓/候选脉搏 · 告警收件箱",
+        "market": snap.market,
         "session_date": snap.last_session_date,
         "env_pill": {
             "staging": "练兵 · 模拟",
@@ -294,9 +295,18 @@ def build_market_view(snap: OpsSnapshot) -> dict[str, Any]:
         "watchlist_meta": {
             "status": wl.get("status"),
             "reason_zh": wl.get("reason_zh"),
+            "empty_reason": wl.get("empty_reason") or (
+                wl.get("reason_zh") if wl.get("no_trade_day") else None
+            ),
             "as_of": wl.get("as_of"),
             "no_trade_day": bool(wl.get("no_trade_day")),
+            "symbols": [
+                str(r.get("symbol"))
+                for r in list(wl.get("deployable") or [])
+                if r.get("symbol")
+            ],
         },
+        "lane_watchlists": snap.lane_watchlists or {},
         "reference_indices": {
             "collapsed": True,
             "note_zh": "参考指数非本页主线；后续可接行情源。当前不做全市场噪音。",

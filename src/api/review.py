@@ -222,8 +222,11 @@ def build_review_view(
     reports_dir: Path | None,
     *,
     session_date: str | None = None,
+    market: str | None = None,
 ) -> dict[str, Any]:
-    reports = load_report_rows(reports_dir) if reports_dir else []
+    reports = (
+        load_report_rows(reports_dir, market=market) if reports_dir else []
+    )
     available = [str(r.get("session_date") or "") for r in reports if r.get("session_date")]
     report = _report_by_date(reports, session_date)
     calendar = build_promotion_calendar(reports) if reports else []
@@ -234,6 +237,7 @@ def build_review_view(
             "product": "作战台",
             "page": "复盘",
             "subtitle": "日复盘一页纸",
+            "market": market,
             "available_dates": available,
             "selected_date": session_date,
             "empty": True,
@@ -252,6 +256,7 @@ def build_review_view(
         "product": "作战台",
         "page": "复盘",
         "subtitle": "日复盘一页纸",
+        "market": market,
         "available_dates": list(reversed(available)),
         "selected_date": sheet["session_date"],
         "empty": False,

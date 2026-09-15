@@ -19,6 +19,8 @@ costs:
 promotion:
   n_days: 20
   max_halts_per_day: 2
+  # PROH-190: 练兵纪元起点（day 0）。此前日报不计入晋级。
+  epoch_start: "2026-09-15"
 futu:
   host: 127.0.0.1
   port: 11111

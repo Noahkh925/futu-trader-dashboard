@@ -9,7 +9,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
@@ -22,6 +22,10 @@ from core.market_session import (
     session_phase,
 )
 from core.portfolio import PortfolioConfig, load_portfolio_config
+from dashboard.day_watchlist import (
+    build_day_watchlist_panel,
+    build_lane_watchlists_for_market,
+)
 from dashboard.lane_a_watchlist import build_lane_a_watchlist_panel
 from research.promotion import DayVerdict, check_promotion, discover_reports, evaluate_day
 
@@ -75,6 +79,7 @@ EXCLUDED_REASON_ZH: dict[str, str] = {
     "unknown_opend_mode": "OpenD 模式未知，不计入练兵",
     "futu_env_not_staging": "环境不是 staging/simulate，不计入练兵",
     "halt_cap_exceeded": "当日停手次数超限，不计入练兵",
+    "pre_epoch_excluded": "练兵纪元前旧账，不计入当前进度（day 0 起算）",
 }
 
 SyncStatus = Literal["ok", "stale", "failed", "empty"]
@@ -989,12 +994,13 @@ def build_promotion_calendar(
     reports: list[dict[str, Any]],
     *,
     limit: int = DEFAULT_CALENDAR_DAYS,
+    epoch_start: str | date | None = None,
 ) -> list[dict[str, Any]]:
     """Recent N days: date, counts_for_promotion, excluded_reason_zh, pnl, halts."""
     calendar: list[dict[str, Any]] = []
     for report in reports[-limit:]:
         try:
-            verdict: DayVerdict = evaluate_day(report)
+            verdict: DayVerdict = evaluate_day(report, epoch_start=epoch_start)
             reason = verdict.reason
             counts = bool(verdict.counts)
             halt_count = int(verdict.halts)
@@ -1595,6 +1601,8 @@ class OpsSnapshot:
     activity: list[dict[str, Any]] = field(default_factory=list)
     # PROH-109: Lane A premarket tech watchlist panel payload
     lane_a_tech_watchlist: dict[str, Any] = field(default_factory=dict)
+    # PROH-187: Autopilot day watchlists (A+B) for selected market
+    lane_watchlists: dict[str, Any] = field(default_factory=dict)
     # PROH-107: Lane A premarket decision transparency
     premarket: dict[str, Any] = field(default_factory=dict)
     # PROH-159: RTH resident runner status (heartbeat.rth_runner)
@@ -1602,6 +1610,9 @@ class OpsSnapshot:
     # PROH-179: dual-market board (always both pools when heartbeat present)
     market: str = "US"
     markets_board: dict[str, Any] = field(default_factory=dict)
+    # PROH-190: drill epoch (day 0) — pre-epoch US reports excluded from streak
+    drill_epoch_start: str | None = None
+    drill_epoch_label_zh: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1681,14 +1692,32 @@ def build_dual_market_board(
             reports_dir=reports_dir,
             repo_root=root,
         )
+        lane_b = build_day_watchlist_panel(
+            market=market_id,
+            lane="B",
+            reports_dir=reports_dir,
+            repo_root=root,
+        )
         if wl.status == "ok":
             wl_zh = f"有名单 · 可交易 {len(wl.deployable)} 只"
         elif wl.status == "no_trade_day":
-            wl_zh = "今日无交易名单（no_trade_day）"
+            reason = (wl.empty_reason or wl.reason_zh or "").strip()
+            wl_zh = (
+                f"今日无交易名单：{reason}"
+                if reason
+                else "今日无交易名单（no_trade_day）"
+            )
         elif wl.status == "bad_schema":
             wl_zh = "名单无效"
         else:
             wl_zh = "尚无盘前名单"
+
+        if lane_b.status == "ok":
+            b_zh = f"B 有候选 · {len(lane_b.symbols)} 只"
+        elif lane_b.empty_reason:
+            b_zh = f"B 空：{lane_b.empty_reason}"
+        else:
+            b_zh = "B 尚无名单"
 
         runner_status = str(block.get("status") or "") if block else ""
         running = runner_status in {"rth_running", "running", "starting"} or (
@@ -1713,6 +1742,12 @@ def build_dual_market_board(
                 "summary_zh": wl_zh,
                 "as_of": wl.as_of,
                 "deployable_count": len(wl.deployable),
+                "empty_reason": wl.empty_reason or (
+                    wl.reason_zh if wl.no_trade_day else None
+                ),
+                "lane_b_summary_zh": b_zh,
+                "lane_b_empty_reason": lane_b.empty_reason,
+                "lane_b_symbols": list(lane_b.symbols),
             },
             "message": str(block.get("message") or "") if block else None,
         }
@@ -1924,7 +1959,12 @@ def build_ops_snapshot(
 
     sync = resolve_reports(reports_dir=reports_dir)
     rdir = sync.path
-    promo = check_promotion(rdir, n=int(config.promotion.n_days))
+    epoch_raw = getattr(config.promotion, "epoch_start", None)
+    promo = check_promotion(
+        rdir,
+        n=int(config.promotion.n_days),
+        epoch_start=epoch_raw,
+    )
     report = load_latest_report(rdir, market=market_id)
     all_reports = load_report_rows(rdir, market=market_id)
     hosting_mode = detect_hosting_mode()
@@ -2020,6 +2060,11 @@ def build_ops_snapshot(
         repo_root=root,
         market=market_id,
     )
+    lane_watchlists = build_lane_watchlists_for_market(
+        market=market_id,
+        reports_dir=rdir,
+        repo_root=root,
+    )
     premarket = build_premarket_decision(
         config, reports_dir=rdir, market=market_id
     )
@@ -2072,10 +2117,16 @@ def build_ops_snapshot(
             )
         )
     elif promo.verdict != "PASS":
-        alert = (
-            f"虚拟盘练兵进度 {promo.counting_streak}/{promo.required_n}，"
-            "还没达到可讨论真钱交易的门槛。"
-        )
+        if promo.epoch_start and promo.counting_streak == 0:
+            alert = (
+                f"练兵纪元起点 {promo.epoch_start}（day 0）——"
+                f"旧美股日报已不计入；进度 {promo.counting_streak}/{promo.required_n}。"
+            )
+        else:
+            alert = (
+                f"虚拟盘练兵进度 {promo.counting_streak}/{promo.required_n}，"
+                "还没达到可讨论真钱交易的门槛。"
+            )
     elif halts:
         alert = f"最近一天有 {halts} 次停手记录，请留意。"
     else:
@@ -2120,7 +2171,9 @@ def build_ops_snapshot(
         sync_error=sync_error,
         synced_at=sync.synced_at,
         events=extract_events(report),
-        promotion_calendar=build_promotion_calendar(all_reports),
+        promotion_calendar=build_promotion_calendar(
+            all_reports, epoch_start=epoch_raw
+        ),
         pnl_points=build_pnl_points(all_reports),
         lane_a_summary=lane_a_day_summary(report),
         lane_b_summary=lane_b_day_summary(report),
@@ -2139,10 +2192,17 @@ def build_ops_snapshot(
         fills=fills,
         activity=activity,
         lane_a_tech_watchlist=lane_a_wl.to_dict(),
+        lane_watchlists=lane_watchlists,
         premarket=premarket,
         rth_resident=rth_resident,
         market=market_id,
         markets_board=markets_board,
+        drill_epoch_start=promo.epoch_start,
+        drill_epoch_label_zh=(
+            f"练兵纪元起点 = {promo.epoch_start}（day 0）"
+            if promo.epoch_start
+            else ""
+        ),
     )
 
 

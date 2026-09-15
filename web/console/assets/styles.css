@@ -165,6 +165,12 @@ body {
   border-radius: 4px;
   padding: 10px 12px;
   background: #fafcfd;
+  cursor: pointer;
+}
+
+.market-card:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .market-card.active {
@@ -188,6 +194,72 @@ body {
   margin: 2px 0;
   font-size: 0.86rem;
   color: #3a4a56;
+}
+
+.lane-watchlists {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.lane-watchlists .kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.wl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.wl-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: #fafcfd;
+}
+
+.wl-card.empty {
+  border-color: var(--watch);
+  background: var(--watch-bg);
+}
+
+.wl-card h2 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.wl-card .wl-session,
+.wl-card .wl-symbols {
+  margin: 2px 0;
+  font-size: 0.86rem;
+  color: #3a4a56;
+}
+
+.wl-card .wl-empty {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #8a5a12;
+}
+
+.wl-card .wl-empty:empty {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .wl-grid,
+  .markets-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .header {

@@ -211,6 +211,7 @@ def build_overview_view(
         "env_pill": _env_pill(snap.futu_env),
         "market": snap.market,
         "markets_board": snap.markets_board or {},
+        "lane_watchlists": snap.lane_watchlists or {},
         "data_as_of_zh": _data_as_of_display(snap),
         "demo": demo,
         "demo_banner": (
@@ -237,8 +238,15 @@ def build_overview_view(
             "pct": round(pct, 1),
             "verdict": snap.promotion_verdict,
             "verdict_zh": _promo_label(snap.promotion_verdict),
+            "epoch_start": snap.drill_epoch_start,
+            "epoch_label_zh": snap.drill_epoch_label_zh or None,
             "caption": (
-                f"结果：{_promo_label(snap.promotion_verdict)}"
+                (
+                    f"{snap.drill_epoch_label_zh} · "
+                    if snap.drill_epoch_label_zh
+                    else ""
+                )
+                + f"结果：{_promo_label(snap.promotion_verdict)}"
                 + (f" · 还差 {remaining} 天" if remaining else "")
             ),
         },

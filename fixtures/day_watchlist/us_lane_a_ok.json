@@ -1,0 +1,9 @@
+{
+  "schema_version": "day_watchlist_1.0",
+  "market": "US",
+  "lane": "A",
+  "session_date": "2026-09-15",
+  "symbols": ["US.QQQ", "US.NVDA"],
+  "rationale": "美股 Lane A 盘前技术面样例",
+  "generated_by": "proh-187-fixture"
+}

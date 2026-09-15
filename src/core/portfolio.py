@@ -87,6 +87,9 @@ class LaneBConfig:
 class PromotionConfig:
     n_days: int = 20
     max_halts_per_day: int = 2
+    # ISO date; session_date before this never counts toward N (PROH-190 day0).
+    # Empty / None = no epoch cutoff (legacy tests).
+    epoch_start: str | None = "2026-09-15"
 
 
 @dataclass(frozen=True)
@@ -290,6 +293,11 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
         promotion=PromotionConfig(
             n_days=int(promo_raw.get("n_days", 20)),
             max_halts_per_day=int(promo_raw.get("max_halts_per_day", 2)),
+            epoch_start=(
+                str(promo_raw["epoch_start"]).strip()
+                if promo_raw.get("epoch_start") not in (None, "")
+                else None
+            ),
         ),
         runtime=load_runtime_config(raw.get("runtime")),
         market=market_raw,

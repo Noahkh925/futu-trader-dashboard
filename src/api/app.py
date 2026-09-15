@@ -189,14 +189,18 @@ def create_app() -> FastAPI:
     def strategy(
         _: None = Depends(require_console_auth),
         reports_dir: str | None = Query(default=None),
+        market: str | None = Query(
+            default=None, description="US or HK — scopes latest report"
+        ),
     ) -> dict[str, Any]:
         rdir = Path(reports_dir) if reports_dir else _default_reports_dir()
         if rdir is None:
-            snap = build_ops_snapshot(probe_opend=False)
+            snap = build_ops_snapshot(probe_opend=False, market=market)
             rdir = Path(snap.reports_dir) if snap.reports_dir else None
         return build_strategy_view(
             reports_dir=rdir,
             svc=param_service(root=param_store_root()),
+            market=market,
         )
 
     @app.get("/api/v1/market")
@@ -221,12 +225,15 @@ def create_app() -> FastAPI:
         _: None = Depends(require_console_auth),
         reports_dir: str | None = Query(default=None),
         date: str | None = Query(default=None, description="session_date YYYY-MM-DD"),
+        market: str | None = Query(
+            default=None, description="US or HK — scopes report calendar"
+        ),
     ) -> dict[str, Any]:
         rdir = Path(reports_dir) if reports_dir else _default_reports_dir()
         if rdir is None:
-            snap = build_ops_snapshot(probe_opend=False)
+            snap = build_ops_snapshot(probe_opend=False, market=market)
             rdir = Path(snap.reports_dir) if snap.reports_dir else None
-        return build_review_view(rdir, session_date=date)
+        return build_review_view(rdir, session_date=date, market=market)
 
     @app.get("/api/v1/params/versions")
     def list_param_versions(_: None = Depends(require_console_auth)) -> dict[str, Any]:

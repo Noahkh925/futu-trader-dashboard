@@ -900,6 +900,11 @@ def _render_q_safe(snap: OpsSnapshot) -> None:
             unsafe_allow_html=True,
         )
         _render_kill_switch(snap)
+        epoch_pill = (
+            f'<span class="ops-pill">{snap.drill_epoch_label_zh}</span>'
+            if snap.drill_epoch_label_zh
+            else ""
+        )
         st.markdown(
             f"""
 <div class="ops-hero {tone}">
@@ -910,6 +915,7 @@ def _render_q_safe(snap: OpsSnapshot) -> None:
     <span class="ops-pill">{_env_label(snap.futu_env)}</span>
     <span class="ops-pill">配置资金 ${snap.total_capital:,.0f}</span>
     <span class="ops-pill">练兵 {snap.counting_streak}/{snap.required_n} 天</span>
+    {epoch_pill}
   </div>
 </div>
 """,
@@ -1247,6 +1253,8 @@ def _render_drill(snap: OpsSnapshot) -> None:
         st.progress(ratio, text=f"完成度 {ratio:.0%}")
     with c2:
         st.metric("结果", _promo_label(snap.promotion_verdict))
+        if snap.drill_epoch_label_zh:
+            st.caption(snap.drill_epoch_label_zh)
         if snap.promotion_verdict == "PASS":
             st.caption("门槛已够。下一步仍要人工决定。")
         else:

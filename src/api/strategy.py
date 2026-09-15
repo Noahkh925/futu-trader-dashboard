@@ -326,12 +326,26 @@ def build_strategy_view(
     reports_dir: Path | None = None,
     svc: ParamVersionService | None = None,
     config_path: Path | None = None,
+    market: str | None = None,
 ) -> dict[str, Any]:
     """Full strategy page payload for GET /api/v1/strategy."""
-    report = load_latest_report(reports_dir) if reports_dir is not None else None
+    report = (
+        load_latest_report(reports_dir, market=market)
+        if reports_dir is not None
+        else None
+    )
     if report is None and reports_dir is not None:
         # Empty dir still ok
         report = None
+
+    if config_path is None and market:
+        from core.market_session import default_config_for, normalize_market
+
+        try:
+            mid = normalize_market(str(market))
+            config_path = _repo_root() / default_config_for(mid)
+        except ValueError:
+            config_path = None
 
     config = load_portfolio_baseline(config_path)
     service = svc or param_service()
@@ -366,6 +380,7 @@ def build_strategy_view(
 
     return {
         "session_date": session_date,
+        "market": market,
         "one_liner_zh": one_liner,
         "decisions": decisions,
         "params": {

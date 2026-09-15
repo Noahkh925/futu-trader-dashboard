@@ -1,0 +1,9 @@
+{
+  "schema_version": "day_watchlist_1.0",
+  "market": "HK",
+  "lane": "B",
+  "session_date": "2026-09-15",
+  "symbols": ["HK.00700", "HK.09988"],
+  "rationale": "港股 Lane B 事件候选样例",
+  "generated_by": "proh-187-fixture"
+}

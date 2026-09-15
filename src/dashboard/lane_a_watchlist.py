@@ -51,6 +51,8 @@ class LaneAWatchlistPanel:
     timezone: str | None = None
     generated_by: str | None = None
     universe_note: str | None = None
+    # Autopilot product field (PROH-187): human reason when no deployable names.
+    empty_reason: str | None = None
     deployable: list[dict[str, Any]] = field(default_factory=list)
     vetoed: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
@@ -95,6 +97,8 @@ def _from_watchlist(wl: LaneATechWatchlist, *, path: Path) -> LaneAWatchlistPane
             )
         elif not wl.names:
             reason = "今日 Lane A 不交易（no_trade_day）：盘前筛选结果为空名单"
+        # Prefer analyst universe_note as Autopilot empty_reason when present.
+        empty = (wl.universe_note or "").strip() or reason
         return LaneAWatchlistPanel(
             status="no_trade_day",
             no_trade_day=True,
@@ -105,6 +109,7 @@ def _from_watchlist(wl: LaneATechWatchlist, *, path: Path) -> LaneAWatchlistPane
             timezone=wl.timezone,
             generated_by=wl.generated_by,
             universe_note=wl.universe_note,
+            empty_reason=empty,
             deployable=[],
             vetoed=vetoed,
         )
@@ -118,6 +123,7 @@ def _from_watchlist(wl: LaneATechWatchlist, *, path: Path) -> LaneAWatchlistPane
         timezone=wl.timezone,
         generated_by=wl.generated_by,
         universe_note=wl.universe_note,
+        empty_reason=None,
         deployable=deployable,
         vetoed=vetoed,
     )
@@ -245,21 +251,25 @@ def build_lane_a_watchlist_panel(
         market=market_id,
     )
     if resolved is None:
+        reason = "今日 Lane A 不交易（no_trade_day）：未配置 tech watchlist 路径"
         return LaneAWatchlistPanel(
             status="missing",
             no_trade_day=True,
-            reason_zh="今日 Lane A 不交易（no_trade_day）：未配置 tech watchlist 路径",
+            reason_zh=reason,
+            empty_reason=reason,
             error="path_unresolved",
         )
 
     if not resolved.is_file():
+        reason = (
+            "今日 Lane A 不交易（no_trade_day）：找不到盘前名单文件"
+            f"（期望路径：{resolved}）"
+        )
         return LaneAWatchlistPanel(
             status="missing",
             no_trade_day=True,
-            reason_zh=(
-                "今日 Lane A 不交易（no_trade_day）：找不到盘前名单文件"
-                f"（期望路径：{resolved}）"
-            ),
+            reason_zh=reason,
+            empty_reason=reason,
             path=str(resolved),
             error="file_missing",
         )
@@ -267,20 +277,22 @@ def build_lane_a_watchlist_panel(
     try:
         wl = load_lane_a_tech_watchlist(resolved)
     except LaneATechWatchlistError as exc:
+        reason = "今日 Lane A 不交易（no_trade_day）：名单 JSON 无效或 schema 不符"
         return LaneAWatchlistPanel(
             status="bad_schema",
             no_trade_day=True,
-            reason_zh=(
-                "今日 Lane A 不交易（no_trade_day）：名单 JSON 无效或 schema 不符"
-            ),
+            reason_zh=reason,
+            empty_reason=reason,
             path=str(resolved),
             error=str(exc),
         )
     except OSError as exc:
+        reason = "今日 Lane A 不交易（no_trade_day）：无法读取名单文件"
         return LaneAWatchlistPanel(
             status="missing",
             no_trade_day=True,
-            reason_zh="今日 Lane A 不交易（no_trade_day）：无法读取名单文件",
+            reason_zh=reason,
+            empty_reason=reason,
             path=str(resolved),
             error=str(exc),
         )

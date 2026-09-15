@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>作战台</title>
-  <!-- proh-185-dual-market @101d56a +kernel -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -52,17 +51,37 @@
       <section id="markets-board" class="markets-board" aria-label="双市场本金与会话">
         <p class="kicker" id="markets-headline">双市场</p>
         <div class="markets-grid">
-          <article class="market-card" data-m="US">
+          <article class="market-card" data-m="US" role="button" tabindex="0" title="切换到美股">
             <h2>美股 US</h2>
             <p class="m-phase" id="us-phase">—</p>
             <p class="m-cap" id="us-cap">本金 —</p>
             <p class="m-wl" id="us-wl">名单 —</p>
+            <p class="m-wl" id="us-wl-b">B —</p>
           </article>
-          <article class="market-card" data-m="HK">
+          <article class="market-card" data-m="HK" role="button" tabindex="0" title="切换到港股">
             <h2>港股 HK</h2>
             <p class="m-phase" id="hk-phase">—</p>
             <p class="m-cap" id="hk-cap">本金 —</p>
             <p class="m-wl" id="hk-wl">名单 —</p>
+            <p class="m-wl" id="hk-wl-b">B —</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="lane-watchlists" class="lane-watchlists" aria-label="当日盘前名单">
+        <p class="kicker" id="wl-market-kicker">当前市场名单</p>
+        <div class="wl-grid">
+          <article class="wl-card" id="wl-lane-a">
+            <h2>Lane A · 趋势</h2>
+            <p class="wl-session" id="wl-a-session">—</p>
+            <p class="wl-symbols" id="wl-a-symbols">—</p>
+            <p class="wl-empty" id="wl-a-empty"></p>
+          </article>
+          <article class="wl-card" id="wl-lane-b">
+            <h2>Lane B · 事件</h2>
+            <p class="wl-session" id="wl-b-session">—</p>
+            <p class="wl-symbols" id="wl-b-symbols">—</p>
+            <p class="wl-empty" id="wl-b-empty"></p>
           </article>
         </div>
       </section>

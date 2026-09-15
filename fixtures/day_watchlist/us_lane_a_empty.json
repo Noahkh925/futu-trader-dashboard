@@ -1,0 +1,10 @@
+{
+  "schema_version": "day_watchlist_1.0",
+  "market": "US",
+  "lane": "A",
+  "session_date": "2026-09-15",
+  "symbols": [],
+  "empty_reason": "信号不足：盘前筛选无合格标的（fixture no_trade_day）",
+  "rationale": "PROH-187 empty fixture — console must show empty_reason",
+  "generated_by": "proh-187-fixture"
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ from staging.schema import SchemaError, validate_daily_report
 
 DEFAULT_N = 20
 MAX_HALTS_PER_DAY = 2
+# PROH-190: dual-market drill epoch — days before this date never count.
+DEFAULT_EPOCH_START = "2026-09-15"
 
 
 @dataclass
@@ -31,6 +34,7 @@ class PromotionResult:
     days: list[DayVerdict] = field(default_factory=list)
     excluded_fallback_days: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
+    epoch_start: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -40,7 +44,20 @@ class PromotionResult:
             "excluded_fallback_days": list(self.excluded_fallback_days),
             "days": [asdict(d) for d in self.days],
             "reasons": list(self.reasons),
+            "epoch_start": self.epoch_start,
         }
+
+
+def parse_epoch_start(raw: str | date | None) -> date | None:
+    """Parse YYYY-MM-DD epoch; None / empty → no cutoff."""
+    if raw is None:
+        return None
+    if isinstance(raw, date):
+        return raw
+    text = str(raw).strip()
+    if not text:
+        return None
+    return date.fromisoformat(text)
 
 
 def _load_report(path: Path) -> dict[str, Any]:
@@ -48,10 +65,28 @@ def _load_report(path: Path) -> dict[str, Any]:
     return validate_daily_report(data)
 
 
-def evaluate_day(report: dict[str, Any]) -> DayVerdict:
+def evaluate_day(
+    report: dict[str, Any],
+    *,
+    epoch_start: str | date | None = None,
+) -> DayVerdict:
     session_date = str(report["session_date"])
     mode = str(report["opend_mode"])
     halts = len(report.get("halts") or [])
+    cutoff = parse_epoch_start(epoch_start)
+    if cutoff is not None:
+        try:
+            day = date.fromisoformat(session_date[:10])
+        except ValueError:
+            day = None
+        if day is not None and day < cutoff:
+            return DayVerdict(
+                date=session_date,
+                counts=False,
+                opend_mode=mode,
+                halts=halts,
+                reason="pre_epoch_excluded",
+            )
     if mode == "opend_sim_fallback_mock":
         return DayVerdict(
             date=session_date,
@@ -103,10 +138,13 @@ def check_promotion(
     reports_dir: Path,
     *,
     n: int = DEFAULT_N,
+    epoch_start: str | date | None = None,
 ) -> PromotionResult:
     paths = discover_reports(Path(reports_dir))
     days: list[DayVerdict] = []
     excluded: list[str] = []
+    cutoff = parse_epoch_start(epoch_start)
+    epoch_s = cutoff.isoformat() if cutoff else None
     for path in paths:
         try:
             report = _load_report(path)
@@ -121,7 +159,7 @@ def check_promotion(
                 )
             )
             continue
-        verdict = evaluate_day(report)
+        verdict = evaluate_day(report, epoch_start=cutoff)
         days.append(verdict)
         if verdict.reason == "fallback_mock_excluded":
             excluded.append(verdict.date)
@@ -142,6 +180,8 @@ def check_promotion(
     if not paths:
         reasons.append("no reports found")
         verdict = "FAIL"
+    if epoch_s:
+        reasons.append(f"epoch_start={epoch_s} (pre-epoch days excluded; day 0)")
 
     return PromotionResult(
         required_n=n,
@@ -150,6 +190,7 @@ def check_promotion(
         days=days_sorted,
         excluded_fallback_days=excluded,
         reasons=reasons or (["ok"] if verdict == "PASS" else ["fail"]),
+        epoch_start=epoch_s,
     )
 
 
@@ -162,13 +203,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Directory of daily_report.json files or YYYY-MM-DD folders",
     )
     parser.add_argument("--n", type=int, default=DEFAULT_N)
+    parser.add_argument(
+        "--epoch-start",
+        default=None,
+        help="YYYY-MM-DD; days before this date never count (PROH-190 day0)",
+    )
     parser.add_argument("--json", action="store_true", help="Print JSON verdict")
     args = parser.parse_args(argv)
-    result = check_promotion(args.reports_dir, n=args.n)
+    result = check_promotion(args.reports_dir, n=args.n, epoch_start=args.epoch_start)
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print(f"verdict={result.verdict} streak={result.counting_streak}/{result.required_n}")
+        if result.epoch_start:
+            print(f"epoch_start={result.epoch_start}")
         for r in result.reasons:
             print(f"- {r}")
     return 0 if result.verdict == "PASS" else 1

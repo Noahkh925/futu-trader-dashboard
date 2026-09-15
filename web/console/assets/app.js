@@ -110,6 +110,39 @@
     return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
   }
 
+  function renderLaneWatchlists(lanes, market) {
+    const mid = market === "HK" ? "HK" : "US";
+    setText(
+      "wl-market-kicker",
+      (mid === "HK" ? "港股" : "美股") + " · 当日盘前名单"
+    );
+    ["A", "B"].forEach((lane) => {
+      const key = lane.toLowerCase();
+      const row = (lanes && lanes[lane]) || {};
+      const card = document.getElementById("wl-lane-" + key);
+      const symbols = Array.isArray(row.symbols) ? row.symbols : [];
+      const emptyReason = row.empty_reason || null;
+      const session = row.session_date
+        ? `交易日 ${row.session_date}`
+        : "交易日 —";
+      setText("wl-" + key + "-session", session);
+      if (symbols.length) {
+        setText("wl-" + key + "-symbols", "标的：" + symbols.join(" · "));
+        setText("wl-" + key + "-empty", "");
+        if (card) card.classList.remove("empty");
+      } else {
+        setText("wl-" + key + "-symbols", "无可交易标的");
+        setText(
+          "wl-" + key + "-empty",
+          emptyReason
+            ? "原因：" + emptyReason
+            : "原因：尚无盘前名单（empty_reason 未提供）"
+        );
+        if (card) card.classList.add("empty");
+      }
+    });
+  }
+
   function renderMarketsBoard(board) {
     if (!board) return;
     setText("markets-headline", board.headline_zh || "双市场");
@@ -132,7 +165,17 @@
           moneyShort(cap.lane_b)
       );
       const wl = row.watchlist || {};
-      setText(prefix + "-wl", wl.summary_zh || "名单 —");
+      const aLine = wl.empty_reason
+        ? "A：" + wl.empty_reason
+        : wl.summary_zh || "A 名单 —";
+      setText(prefix + "-wl", aLine);
+      setText(
+        prefix + "-wl-b",
+        wl.lane_b_summary_zh ||
+          (wl.lane_b_empty_reason
+            ? "B：" + wl.lane_b_empty_reason
+            : "B —")
+      );
       const card = document.querySelector(
         '.market-card[data-m="' + mid + '"]'
       );
@@ -143,10 +186,20 @@
     });
   }
 
+  function selectMarket(m) {
+    const next = m === "HK" ? "HK" : "US";
+    if (next === selectedMarket) return;
+    selectedMarket = next;
+    sessionStorage.setItem("console_market", next);
+    syncMarketButtons();
+    refresh();
+  }
+
   function renderOverview(data) {
     setText("env-pill", data.env_pill || "—");
     setText("as-of", data.data_as_of_zh || "数据截至 —");
     renderMarketsBoard(data.markets_board);
+    renderLaneWatchlists(data.lane_watchlists, data.market || selectedMarket);
 
     const dual = document.getElementById("dual-pill");
     if (data.dual_run && data.dual_run.label) {
@@ -454,21 +507,40 @@
     }
 
     const wl = data.watchlist_meta || {};
-    setText(
-      "watchlist-meta",
-      wl.reason_zh
-        ? `名单：${wl.reason_zh}`
-        : wl.status
-          ? `名单状态：${wl.status}`
-          : ""
-    );
+    const emptyReason = wl.empty_reason || wl.reason_zh;
+    if (emptyReason && (wl.no_trade_day || !(wl.symbols && wl.symbols.length))) {
+      setText("watchlist-meta", "名单原因：" + emptyReason);
+    } else if (wl.symbols && wl.symbols.length) {
+      setText(
+        "watchlist-meta",
+        "名单：" + wl.symbols.join(" · ") + (wl.as_of ? " · " + wl.as_of : "")
+      );
+    } else if (wl.status) {
+      setText("watchlist-meta", "名单状态：" + wl.status);
+    } else {
+      setText("watchlist-meta", "");
+    }
 
     const pulseBox = document.getElementById("pulse-list");
     const pulse = data.pulse || [];
-    if (!pulse.length) {
+    const lanes = data.lane_watchlists || {};
+    pulseBox.innerHTML = "";
+    ["A", "B"].forEach((lane) => {
+      const row = lanes[lane] || {};
+      if (row.empty_reason && !(row.symbols && row.symbols.length)) {
+        const card = document.createElement("article");
+        card.className = "pulse-card watch";
+        card.innerHTML =
+          `<p class="title"></p><p class="status"></p><p class="detail"></p>`;
+        card.querySelector(".title").textContent = `路线 ${lane} · 空名单`;
+        card.querySelector(".status").textContent = "无交易候选";
+        card.querySelector(".detail").textContent = "原因：" + row.empty_reason;
+        pulseBox.appendChild(card);
+      }
+    });
+    if (!pulse.length && !pulseBox.children.length) {
       pulseBox.innerHTML = "<p class='empty'>暂无持仓或候选脉搏。</p>";
     } else {
-      pulseBox.innerHTML = "";
       pulse.forEach((p) => {
         const card = document.createElement("article");
         card.className = "pulse-card " + (p.tone || "idle");
@@ -640,7 +712,7 @@
   }
 
   async function refreshStrategy() {
-    const data = await apiGet("/api/v1/strategy");
+    const data = await apiGet(withMarket("/api/v1/strategy"));
     renderStrategy(data);
   }
 
@@ -650,10 +722,10 @@
   }
 
   async function refreshReview() {
-    const q = selectedReviewDate
-      ? `?date=${encodeURIComponent(selectedReviewDate)}`
-      : "";
-    const data = await apiGet("/api/v1/review" + q);
+    const path = selectedReviewDate
+      ? `/api/v1/review?date=${encodeURIComponent(selectedReviewDate)}&${marketQuery()}`
+      : withMarket("/api/v1/review");
+    const data = await apiGet(path);
     renderReview(data);
   }
 
@@ -842,15 +914,20 @@
 
   document.querySelectorAll(".market-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const m = btn.dataset.market === "HK" ? "HK" : "US";
-      if (m === selectedMarket) return;
-      selectedMarket = m;
-      sessionStorage.setItem("console_market", m);
-      syncMarketButtons();
-      refresh();
+      selectMarket(btn.dataset.market);
     });
   });
   syncMarketButtons();
+
+  document.querySelectorAll(".market-card[data-m]").forEach((card) => {
+    card.addEventListener("click", () => selectMarket(card.dataset.m));
+    card.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        selectMarket(card.dataset.m);
+      }
+    });
+  });
 
   if (els.paramForm) {
     els.paramForm.addEventListener("submit", saveParams);
