@@ -194,7 +194,11 @@ def _from_lane_b_news(
             lane="B",
             status="missing",
             symbols=[],
-            empty_reason="今日 Lane B 尚无盘前名单（云端精简镜像未带事件解析器）",
+            empty_reason=(
+                "尚无 Lane B 名单可读"
+                "（云端精简镜像未带事件解析器；请同步 day_watchlist，"
+                "勿把「本机有产物」当成云端已展示）"
+            ),
             source="missing",
             error="lane_b_news_event_not_shipped",
         )

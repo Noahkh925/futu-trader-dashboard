@@ -86,6 +86,9 @@ SyncStatus = Literal["ok", "stale", "failed", "empty"]
 SYNC_META_NAME = ".sync_meta.json"
 HEARTBEAT_NAME = "heartbeat.json"
 LANE_A_WATCHLIST_REMOTE = "lane_a/tech_watchlist.json"
+LANE_A_WATCHLIST_HK_REMOTE = "lane_a/hk/tech_watchlist.json"
+LANE_B_DAY_WATCHLIST_REMOTE = "lane_b/day_watchlist.json"
+LANE_B_DAY_WATCHLIST_HK_REMOTE = "lane_b/hk/day_watchlist.json"
 DEFAULT_CALENDAR_DAYS = 20
 DEFAULT_PNL_DAYS = 20
 STALE_AFTER_DAYS = 3
@@ -287,23 +290,43 @@ def sync_remote_reports(base_url: str, dest: Path) -> SyncResult:
     ):
         pass
 
-    # Best-effort Lane A premarket tech watchlist (PROH-109).
-    try:
-        wl = _http_get_json(f"{base}/{LANE_A_WATCHLIST_REMOTE}")
-        if isinstance(wl, dict):
-            wl_dir = dest / "lane_a"
-            wl_dir.mkdir(parents=True, exist_ok=True)
-            (wl_dir / "tech_watchlist.json").write_text(
-                json.dumps(wl, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-    except (
-        urllib.error.URLError,
-        urllib.error.HTTPError,
-        TimeoutError,
-        json.JSONDecodeError,
-    ):
-        pass
+    # Best-effort Lane A premarket tech watchlists (PROH-109 / PROH-193 HK).
+    for remote_rel in (LANE_A_WATCHLIST_REMOTE, LANE_A_WATCHLIST_HK_REMOTE):
+        try:
+            wl = _http_get_json(f"{base}/{remote_rel}")
+            if isinstance(wl, dict):
+                out = dest / remote_rel
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(
+                    json.dumps(wl, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            json.JSONDecodeError,
+        ):
+            pass
+
+    # Best-effort Lane B Autopilot day products (empty_reason on cloud console).
+    for remote_rel in (LANE_B_DAY_WATCHLIST_REMOTE, LANE_B_DAY_WATCHLIST_HK_REMOTE):
+        try:
+            payload = _http_get_json(f"{base}/{remote_rel}")
+            if isinstance(payload, dict):
+                out = dest / remote_rel
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            json.JSONDecodeError,
+        ):
+            pass
 
     (dest / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
