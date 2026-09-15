@@ -1,10 +1,10 @@
-﻿{
-    "dates":  [
-                  "2026-09-09",
-                  "2026-09-10"
-              ],
-    "updated_at":  "2026-09-15T05:55:31.1836107Z",
-    "drill_day":  0,
-    "note":  "Pre-epoch US days retained for history; promotion.epoch_start=2026-09-15 excludes them from drill streak (day 0).",
-    "epoch_start":  "2026-09-15"
+{
+  "dates": [
+    "2026-09-09",
+    "2026-09-10"
+  ],
+  "updated_at": "2026-09-15T05:55:31.1836107Z",
+  "drill_day": 0,
+  "note": "Pre-epoch US days retained for history; promotion.epoch_start=2026-09-15 excludes them from drill streak (day 0).",
+  "epoch_start": "2026-09-15"
 }

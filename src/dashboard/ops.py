@@ -168,7 +168,8 @@ def _utc_now_iso() -> str:
 def _http_get_json(url: str, timeout: float = 20.0) -> Any:
     req = urllib.request.Request(url, headers={"User-Agent": "futu-trader-dashboard/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        # utf-8-sig strips a leading BOM (Windows writers sometimes emit one).
+        return json.loads(resp.read().decode("utf-8-sig"))
 
 
 def _write_sync_meta(dest: Path, *, status: str, error: str | None, synced_at: str | None) -> None:
