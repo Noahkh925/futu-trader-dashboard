@@ -1,22 +1,6 @@
-"""Strategy modules: Lane A ORB+VWAP and Lane B option structures."""
+"""Strategy package (dashboard deploy subset).
 
-from strategy.option_structure import (
-    StructureConfig,
-    StructurePlan,
-    atm_strike,
-    build_structure_plan,
-    size_contracts,
-)
-from strategy.orb_vwap import Bar, OrbVwapEngine, OrbVwapSignal, SignalSide
-
-__all__ = [
-    "Bar",
-    "OrbVwapEngine",
-    "OrbVwapSignal",
-    "SignalSide",
-    "StructureConfig",
-    "StructurePlan",
-    "atm_strike",
-    "build_structure_plan",
-    "size_contracts",
-]
+Keep this module free of Lane B option-structure imports so the Render
+console image does not need the full paper/options stack at boot.
+Import ORB/VWAP from ``strategy.orb_vwap`` directly when needed.
+"""
