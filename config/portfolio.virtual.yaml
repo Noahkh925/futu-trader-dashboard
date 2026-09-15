@@ -4,8 +4,9 @@ lane_b_ratio: 0.30
 trading_enabled: false
 allow_production_live: false
 experiment_id: baseline
+# Isolated US paper pool (USD). HK uses config/portfolio.virtual.hk.yaml — no shared cash.
 market: US
-# T3 traffic switches (ADR-0001). Legacy remains Noah's default until cutover.
+# T3 traffic switches — keep legacy publish for Noah on virtual/OpenD days.
 runtime:
   active_kernel: legacy
   dual_run: true
@@ -24,10 +25,11 @@ futu:
   env: staging
 
 lane_a:
-  # symbol used when universe_mode=fixed; never a silent fallback for watchlist.
+  # symbol used only if universe_mode=fixed; never a silent fallback for watchlist.
   symbol: US.QQQ
-  universe_mode: fixed
-  tech_watchlist_path: fixtures/lane_a/valid_lane_a_tech_watchlist.json
+  universe_mode: watchlist
+  # Premarket Autopilot writes here (stable pointer). Missing/bad/empty → no_trade_day (no QQQ fallback).
+  tech_watchlist_path: logs/lane_a/tech_watchlist.json
   empty_universe_policy: no_trade
   max_universe_names: 3
   orb:
@@ -46,7 +48,7 @@ lane_a:
     allow_add_to_position: false
   paper:
     # mock_fill: CI / offline. Use config/portfolio.virtual.yaml for OpenD simulate.
-    mode: mock_fill
+    mode: opend_sim
     fill_slippage_bps: 0.0
 
 lane_b:
@@ -64,7 +66,8 @@ lane_b:
   require_us: true
   require_options_tradable: true
   analyst_watchlist_path: null
-  news_event_path: null
+  # AI major-news sim input (file or dir of lane_b_news_event_1.0). Missing → idle.
+  news_event_path: logs/lane_b/news_events
   calendar:
     source: fixture
     fixture_path: fixtures/earnings_calendar.json
@@ -72,4 +75,4 @@ lane_b:
     source: fixture
     fixture_path: fixtures/option_chains.json
   paper:
-    mode: mock_fill
+    mode: opend_sim

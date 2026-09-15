@@ -2,19 +2,27 @@
 
 Independent from Lane B analyst_watchlist (schema_version \"1.0\"). Fail closed:
 bad schema raises; weak-evidence / gate contradictions reject the document.
+
+Symbols: ``US.TICKER`` or ``HK.#####`` (4–5 digits). Optional top-level
+``market`` (US|HK) must agree with symbols and timezone (PROH-179).
 """
 
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from core.market_symbols import is_valid_market_symbol, symbol_market
 
 SCHEMA_VERSION = "lane_a_tech_1.0"
-_SYMBOL_RE = re.compile(r"^US\.[A-Z][A-Z0-9.\-]*$")
+MarketHint = Literal["US", "HK"]
+_EXPECTED_TZ: dict[MarketHint, str] = {
+    "US": "America/New_York",
+    "HK": "Asia/Hong_Kong",
+}
 
 
 class LaneATechWatchlistError(ValueError):
@@ -55,6 +63,7 @@ class LaneATechWatchlist:
     timezone: str
     generated_by: str
     names: tuple[LaneATechName, ...]
+    market: MarketHint | None = None
 
     def deployable(self) -> list[LaneATechName]:
         return [n for n in self.names if not n.veto]
@@ -79,9 +88,9 @@ def _validate_name(i: int, row: dict[str, Any]) -> LaneATechName:
         raise LaneATechWatchlistError(f"names[{i}] must be object")
 
     symbol = str(row.get("symbol") or "")
-    if not _SYMBOL_RE.match(symbol):
+    if not is_valid_market_symbol(symbol):
         raise LaneATechWatchlistError(
-            f"names[{i}].symbol must match US.TICKER, got {symbol!r}"
+            f"names[{i}].symbol must match US.TICKER or HK.#####, got {symbol!r}"
         )
 
     if "score" not in row or not isinstance(row["score"], (int, float)):
@@ -158,6 +167,15 @@ def _validate_name(i: int, row: dict[str, Any]) -> LaneATechName:
     )
 
 
+def _normalize_doc_market(raw: Any) -> MarketHint | None:
+    if raw is None or str(raw).strip() == "":
+        return None
+    key = str(raw).strip().upper()
+    if key not in {"US", "HK"}:
+        raise LaneATechWatchlistError(f"market must be US or HK, got {raw!r}")
+    return key  # type: ignore[return-value]
+
+
 def validate_lane_a_tech_watchlist_dict(payload: dict[str, Any]) -> LaneATechWatchlist:
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise LaneATechWatchlistError(
@@ -179,11 +197,35 @@ def validate_lane_a_tech_watchlist_dict(payload: dict[str, Any]) -> LaneATechWat
     if not generated_by:
         raise LaneATechWatchlistError("generated_by required")
 
+    doc_market = _normalize_doc_market(payload.get("market"))
+    if doc_market is not None:
+        expected_tz = _EXPECTED_TZ[doc_market]
+        if timezone != expected_tz:
+            raise LaneATechWatchlistError(
+                f"timezone must be {expected_tz!r} when market={doc_market}, "
+                f"got {timezone!r}"
+            )
+
     names_raw = payload.get("names")
     if not isinstance(names_raw, list):
         raise LaneATechWatchlistError("names must be an array")
 
     names = [_validate_name(i, row) for i, row in enumerate(names_raw)]
+    if doc_market is not None:
+        for i, name in enumerate(names):
+            inferred = symbol_market(name.symbol)
+            if inferred != doc_market:
+                raise LaneATechWatchlistError(
+                    f"names[{i}].symbol {name.symbol!r} belongs to {inferred}, "
+                    f"document market={doc_market}"
+                )
+            row_m = (name.market or "").strip().upper()
+            if row_m and row_m != doc_market:
+                raise LaneATechWatchlistError(
+                    f"names[{i}].market {name.market!r} mismatches "
+                    f"document market={doc_market}"
+                )
+
     return LaneATechWatchlist(
         schema_version=SCHEMA_VERSION,
         as_of=as_of,
@@ -191,6 +233,7 @@ def validate_lane_a_tech_watchlist_dict(payload: dict[str, Any]) -> LaneATechWat
         timezone=timezone,
         generated_by=generated_by,
         names=tuple(names),
+        market=doc_market,
     )
 
 

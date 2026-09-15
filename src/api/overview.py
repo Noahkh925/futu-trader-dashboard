@@ -209,6 +209,8 @@ def build_overview_view(
         "product": "作战台",
         "subtitle": "只读监盘",
         "env_pill": _env_pill(snap.futu_env),
+        "market": snap.market,
+        "markets_board": snap.markets_board or {},
         "data_as_of_zh": _data_as_of_display(snap),
         "demo": demo,
         "demo_banner": (

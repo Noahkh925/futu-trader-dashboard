@@ -136,11 +136,15 @@ def create_app() -> FastAPI:
         _: None = Depends(require_console_auth),
         reports_dir: str | None = Query(default=None),
         probe_opend: bool = Query(default=False),
+        market: str | None = Query(
+            default=None, description="US or HK — scopes report/watchlist panels"
+        ),
     ) -> dict[str, Any]:
         rdir = Path(reports_dir) if reports_dir else _default_reports_dir()
         snap = build_ops_snapshot(
             reports_dir=rdir,
             probe_opend=probe_opend,
+            market=market,
         )
         return snap.to_dict()
 
@@ -149,11 +153,15 @@ def create_app() -> FastAPI:
         _: None = Depends(require_console_auth),
         reports_dir: str | None = Query(default=None),
         probe_opend: bool = Query(default=False),
+        market: str | None = Query(
+            default=None, description="US or HK — scopes detail; board always dual"
+        ),
     ) -> dict[str, Any]:
         rdir = Path(reports_dir) if reports_dir else _default_reports_dir()
         snap = build_ops_snapshot(
             reports_dir=rdir,
             probe_opend=probe_opend,
+            market=market,
         )
         compare = load_dual_run_compare(
             Path(snap.reports_dir) if snap.reports_dir else rdir,
@@ -192,15 +200,19 @@ def create_app() -> FastAPI:
         )
 
     @app.get("/api/v1/market")
-    def market(
+    def market_page(
         _: None = Depends(require_console_auth),
         reports_dir: str | None = Query(default=None),
         probe_opend: bool = Query(default=False),
+        market: str | None = Query(
+            default=None, description="US or HK — scopes holdings/watchlist"
+        ),
     ) -> dict[str, Any]:
         rdir = Path(reports_dir) if reports_dir else _default_reports_dir()
         snap = build_ops_snapshot(
             reports_dir=rdir,
             probe_opend=probe_opend,
+            market=market,
         )
         return build_market_view(snap)
 

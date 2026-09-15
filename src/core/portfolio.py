@@ -12,6 +12,7 @@ from core.costs import CostModel, cost_model_from_mapping
 from core.ledger import Ledger
 from core.risk import LaneBRiskLimits, RiskLimits, lane_b_risk_limits_from_mapping
 from data.earnings_calendar import CalendarFilterConfig, calendar_filter_config_from_mapping
+from kernel.runtime import RuntimeConfig, load_runtime_config
 from strategy.orb_vwap import OrbVwapConfig
 
 
@@ -69,6 +70,8 @@ class LaneBConfig:
     option_chain: LaneBOptionChainConfig
     paper: PaperConfig
     analyst_watchlist_path: str | None = None
+    # JSON file or directory of lane_b_news_event_1.0 docs (sim auto-path).
+    news_event_path: str | None = None
 
     @property
     def risk(self) -> LaneBRiskLimits:
@@ -99,6 +102,10 @@ class PortfolioConfig:
     allow_production_live: bool = False
     experiment_id: str = "baseline"
     promotion: PromotionConfig = PromotionConfig()
+    # T3 traffic switches (ADR-0001). Default keeps Noah on legacy path.
+    runtime: RuntimeConfig = RuntimeConfig()
+    # Venue this portfolio pool belongs to (PROH-175). Default US.
+    market: str = "US"
 
     def create_ledger(self) -> Ledger:
         return Ledger.from_allocation(
@@ -144,6 +151,7 @@ def _default_lane_b() -> dict[str, Any]:
         "require_us": True,
         "require_options_tradable": True,
         "analyst_watchlist_path": None,
+        "news_event_path": None,
         "calendar": {
             "source": "fixture",
             "fixture_path": "fixtures/earnings_calendar.json",
@@ -194,6 +202,13 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
     lane_b_risk = lane_b_risk_limits_from_mapping(lane_b_raw)
     promo_raw = raw.get("promotion") or {}
     wl_path = lane_b_raw.get("analyst_watchlist_path")
+    news_path = lane_b_raw.get("news_event_path")
+
+    market_raw = str(raw.get("market") or "US").strip().upper()
+    if market_raw not in {"US", "HK"}:
+        raise ValueError(f"portfolio market must be US or HK, got {market_raw!r}")
+    # HK continuous open is also 09:30 local; set ORB tz for that market.
+    orb_tz = "Asia/Hong_Kong" if market_raw == "HK" else "America/New_York"
 
     return PortfolioConfig(
         total_capital=float(raw["total_capital"]),
@@ -213,6 +228,9 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
                 require_below_for_short=bool(vwap_raw["require_below_for_short"]),
                 regime_enabled=bool(regime_raw.get("enabled", False)),
                 min_or_range_pct=float(regime_raw.get("min_or_range_pct", 0.001)),
+                session_tz=str(orb_raw.get("session_tz", orb_tz)),
+                rth_open_hour=int(orb_raw.get("rth_open_hour", 9)),
+                rth_open_minute=int(orb_raw.get("rth_open_minute", 30)),
             ),
             risk=RiskLimits(
                 max_loss_per_trade_pct=float(risk_raw["max_loss_per_trade_pct"]),
@@ -263,6 +281,7 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
                 fill_slippage_bps=float(lane_b_paper_raw.get("fill_slippage_bps", 0)),
             ),
             analyst_watchlist_path=str(wl_path) if wl_path else None,
+            news_event_path=str(news_path) if news_path else None,
         ),
         costs=cost_model_from_mapping(raw.get("costs")),
         trading_enabled=bool(raw.get("trading_enabled", False)),
@@ -272,4 +291,6 @@ def load_portfolio_config(path: str | Path) -> PortfolioConfig:
             n_days=int(promo_raw.get("n_days", 20)),
             max_halts_per_day=int(promo_raw.get("max_halts_per_day", 2)),
         ),
+        runtime=load_runtime_config(raw.get("runtime")),
+        market=market_raw,
     )

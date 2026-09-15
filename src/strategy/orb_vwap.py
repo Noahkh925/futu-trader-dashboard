@@ -97,6 +97,18 @@ def session_open_et(session_day: date) -> datetime:
     return datetime.combine(session_day, RTH_OPEN, tzinfo=ET)
 
 
+def session_open(
+    session_day: date,
+    *,
+    tz: ZoneInfo | None = None,
+    open_time: time | None = None,
+) -> datetime:
+    """Session continuous-auction open (default: US ET 09:30)."""
+    zone = tz or ET
+    open_ = open_time or RTH_OPEN
+    return datetime.combine(session_day, open_, tzinfo=zone)
+
+
 @dataclass
 class OrbVwapConfig:
     window_minutes: int = 15
@@ -105,6 +117,10 @@ class OrbVwapConfig:
     require_below_for_short: bool = True
     regime_enabled: bool = False
     min_or_range_pct: float = 0.001
+    # Market session clock (PROH-175). Defaults preserve US ET ORB.
+    session_tz: str = "America/New_York"
+    rth_open_hour: int = 9
+    rth_open_minute: int = 30
 
 
 @dataclass
@@ -117,6 +133,17 @@ class OrbVwapEngine:
     vwap: VwapTracker = field(default_factory=VwapTracker)
     last_side: SignalSide = SignalSide.FLAT
 
+    def _session_tz(self) -> ZoneInfo:
+        return ZoneInfo(self.config.session_tz)
+
+    def _session_open(self) -> datetime:
+        assert self.session_date is not None
+        return session_open(
+            self.session_date,
+            tz=self._session_tz(),
+            open_time=time(self.config.rth_open_hour, self.config.rth_open_minute),
+        )
+
     def reset(self, session_day: date) -> None:
         self.session_date = session_day
         self.opening_range = OpeningRange()
@@ -124,13 +151,13 @@ class OrbVwapEngine:
         self.last_side = SignalSide.FLAT
 
     def _ensure_session(self, bar: Bar) -> None:
-        day = bar.ts.astimezone(ET).date()
+        day = bar.ts.astimezone(self._session_tz()).date()
         if self.session_date != day:
             self.reset(day)
 
     def _window_end(self) -> datetime:
         assert self.session_date is not None
-        return session_open_et(self.session_date) + timedelta(minutes=self.config.window_minutes)
+        return self._session_open() + timedelta(minutes=self.config.window_minutes)
 
     def on_bar(self, bar: Bar) -> OrbVwapSignal:
         self._ensure_session(bar)

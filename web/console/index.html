@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>作战台</title>
-  <!-- proh-159-rth -->
+  <!-- proh-185-dual-market @101d56a -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -12,24 +12,11 @@
 </head>
 <body>
   <div id="gate" class="gate hidden" aria-label="密码门">
-    <div class="gate-panel">
-      <p class="gate-brand">作战台</p>
-      <h1 class="gate-title">输入密码后查看</h1>
-      <p class="gate-hint">只读监盘 · 此页不会改真下单开关</p>
-      <form id="gate-form" class="gate-form" autocomplete="on">
-        <label class="gate-label" for="gate-password">密码</label>
-        <input
-          id="gate-password"
-          type="password"
-          name="password"
-          autocomplete="current-password"
-          placeholder="输入访问密码"
-          autofocus
-        />
-        <button type="submit" id="gate-submit" class="gate-submit">进入</button>
-      </form>
-      <div id="gate-error" class="gate-err hidden" role="alert"></div>
-    </div>
+    <h1>作战台</h1>
+    <p>输入密码后查看；此页不会改真下单开关。</p>
+    <input id="gate-password" type="password" autocomplete="current-password" placeholder="密码" />
+    <button type="button" id="gate-submit">进入</button>
+    <div id="gate-error" class="err hidden"></div>
   </div>
 
   <div id="app" class="wrap hidden">
@@ -38,6 +25,10 @@
       <button type="button" data-page="strategy">策略</button>
       <button type="button" data-page="market">市场</button>
       <button type="button" data-page="review">复盘</button>
+      <span class="market-switch" role="group" aria-label="市场">
+        <button type="button" class="market-btn active" data-market="US">美股</button>
+        <button type="button" class="market-btn" data-market="HK">港股</button>
+      </span>
     </nav>
 
     <p id="status-line" class="status-line" aria-live="polite"></p>
@@ -57,6 +48,24 @@
 
       <div id="demo-banner" class="banner hidden" role="status"></div>
       <div id="alert-banner" class="banner risk hidden" role="alert"></div>
+
+      <section id="markets-board" class="markets-board" aria-label="双市场本金与会话">
+        <p class="kicker" id="markets-headline">双市场</p>
+        <div class="markets-grid">
+          <article class="market-card" data-m="US">
+            <h2>美股 US</h2>
+            <p class="m-phase" id="us-phase">—</p>
+            <p class="m-cap" id="us-cap">本金 —</p>
+            <p class="m-wl" id="us-wl">名单 —</p>
+          </article>
+          <article class="market-card" data-m="HK">
+            <h2>港股 HK</h2>
+            <p class="m-phase" id="hk-phase">—</p>
+            <p class="m-cap" id="hk-cap">本金 —</p>
+            <p class="m-wl" id="hk-wl">名单 —</p>
+          </article>
+        </div>
+      </section>
 
       <section id="rth-resident" class="rth-bar" aria-label="开市常驻状态" role="status">
         <p class="kicker" id="rth-kicker">现在该不该有模拟单</p>

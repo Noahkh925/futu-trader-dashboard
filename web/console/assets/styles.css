@@ -33,129 +33,35 @@ body {
 .hidden { display: none !important; }
 
 .gate {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px 20px;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(44, 122, 107, 0.12), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(15, 28, 36, 0.06), transparent 50%),
-    linear-gradient(180deg, #dfe8ee 0%, var(--bg) 45%, #e2eaef 100%);
-  animation: gate-fade 0.45s ease-out;
-}
-
-@keyframes gate-fade {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.gate-panel {
-  width: 100%;
-  max-width: 400px;
-  padding: 36px 32px 32px;
+  max-width: 420px;
+  margin: 12vh auto;
+  padding: 24px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 18px 40px -24px rgba(15, 28, 36, 0.35);
+  border-radius: 4px;
 }
 
-.gate-brand {
-  margin: 0 0 20px;
-  font-family: "IBM Plex Mono", "IBM Plex Sans", monospace;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--busy);
-}
-
-.gate-title {
+.gate h1 {
   margin: 0 0 8px;
-  font-size: 1.55rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  font-size: 1.2rem;
 }
 
-.gate-hint {
-  margin: 0 0 28px;
+.gate p {
+  margin: 0 0 14px;
   color: var(--muted);
   font-size: 0.92rem;
-  line-height: 1.5;
-}
-
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.gate-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: 0.02em;
 }
 
 .gate input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 4px;
   font: inherit;
-  font-size: 1rem;
-  color: var(--ink);
-  background: #f7fafb;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  margin-bottom: 10px;
 }
 
-.gate input::placeholder {
-  color: #8a9aab;
-}
-
-.gate input:hover {
-  border-color: #a8b6c2;
-}
-
-.gate input:focus {
-  outline: none;
-  border-color: var(--busy);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(44, 122, 107, 0.18);
-}
-
-.gate-submit {
-  margin-top: 10px;
-  width: 100%;
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  padding: 12px 16px;
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  background: var(--ink);
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.12s ease;
-}
-
-.gate-submit:hover {
-  background: #1a2d38;
-}
-
-.gate-submit:active {
-  transform: translateY(1px);
-}
-
-.gate-submit:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(44, 122, 107, 0.28);
-}
-
+.gate button,
 .fresh button,
 .btn {
   font: inherit;
@@ -169,30 +75,10 @@ body {
   cursor: pointer;
 }
 
-.gate-err {
+.gate .err {
   color: var(--risk);
-  font-size: 0.88rem;
-  margin-top: 16px;
-  padding: 10px 12px;
-  background: var(--risk-bg);
-  border-radius: 4px;
-  line-height: 1.4;
-}
-
-@media (max-width: 480px) {
-  .gate {
-    padding: 20px 16px;
-    align-items: flex-start;
-    padding-top: 12vh;
-  }
-
-  .gate-panel {
-    padding: 28px 22px 24px;
-  }
-
-  .gate-title {
-    font-size: 1.35rem;
-  }
+  font-size: 0.85rem;
+  margin-top: 8px;
 }
 
 .nav {
@@ -223,6 +109,85 @@ body {
 .nav button:disabled {
   cursor: default;
   opacity: 0.55;
+}
+
+.market-switch {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.market-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.market-btn.active {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: #f3f7fa;
+}
+
+.markets-board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.markets-board .kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.market-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: #fafcfd;
+}
+
+.market-card.active {
+  border-left: 4px solid var(--safe);
+  background: var(--safe-bg);
+}
+
+.market-card.selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.market-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.market-card .m-phase,
+.market-card .m-cap,
+.market-card .m-wl {
+  margin: 2px 0;
+  font-size: 0.86rem;
+  color: #3a4a56;
 }
 
 .header {
@@ -929,7 +894,8 @@ summary {
 
 @media (max-width: 700px) {
   .band,
-  .lanes { grid-template-columns: 1fr; }
+  .lanes,
+  .markets-grid { grid-template-columns: 1fr; }
   .wrap { padding: 16px; }
   .verdict h1 { font-size: 1.18rem; }
   .rth-bar .rth-label { font-size: 1.02rem; }

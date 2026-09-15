@@ -14,8 +14,14 @@ from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
+from core.market_session import (
+    MarketId,
+    active_order_market,
+    default_config_for,
+    normalize_market,
+    session_phase,
+)
 from core.portfolio import PortfolioConfig, load_portfolio_config
-from core.rth import session_phase
 from dashboard.lane_a_watchlist import build_lane_a_watchlist_panel
 from research.promotion import DayVerdict, check_promotion, discover_reports, evaluate_day
 
@@ -849,7 +855,28 @@ def human_excluded_reason(reason: str | None) -> str | None:
     return EXCLUDED_REASON_ZH.get(key, key)
 
 
-def load_latest_report(reports_dir: Path) -> dict[str, Any] | None:
+def _report_matches_market(report: dict[str, Any], path: Path, market: MarketId) -> bool:
+    raw = report.get("market")
+    if raw is not None and str(raw).strip():
+        try:
+            return normalize_market(str(raw)) == market
+        except ValueError:
+            return False
+    norm = str(path).replace("\\", "/")
+    if f"/{market}/" in norm or norm.endswith(f"/{market}"):
+        return True
+    # Legacy reports without market field / path segment were US-only.
+    if market == "US" and "/HK/" not in norm:
+        return True
+    return False
+
+
+def load_latest_report(
+    reports_dir: Path,
+    *,
+    market: MarketId | str | None = None,
+) -> dict[str, Any] | None:
+    market_id = normalize_market(str(market)) if market is not None else None
     paths = sorted(reports_dir.glob("**/daily_report.json"))
     if not paths:
         flat = sorted(reports_dir.glob("*.json"))
@@ -857,15 +884,37 @@ def load_latest_report(reports_dir: Path) -> dict[str, Any] | None:
         paths = [p for p in flat if p.name not in skip] or flat
     if not paths:
         return None
-    latest = paths[-1]
-    try:
-        return json.loads(latest.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+
+    def _try_load(path: Path) -> dict[str, Any] | None:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    if market_id is None:
+        latest = paths[-1]
+        return _try_load(latest)
+
+    matched: list[tuple[Path, dict[str, Any]]] = []
+    for path in paths:
+        data = _try_load(path)
+        if data is None:
+            continue
+        if _report_matches_market(data, path, market_id):
+            matched.append((path, data))
+    if matched:
+        return matched[-1][1]
+    return None
 
 
-def load_report_rows(reports_dir: Path) -> list[dict[str, Any]]:
+def load_report_rows(
+    reports_dir: Path,
+    *,
+    market: MarketId | str | None = None,
+) -> list[dict[str, Any]]:
     """Load all daily reports sorted by session_date ascending."""
+    market_id = normalize_market(str(market)) if market is not None else None
     rows: list[dict[str, Any]] = []
     for path in discover_reports(Path(reports_dir)):
         if path.name == SYNC_META_NAME:
@@ -875,6 +924,8 @@ def load_report_rows(reports_dir: Path) -> list[dict[str, Any]]:
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(data, dict):
+            continue
+        if market_id is not None and not _report_matches_market(data, path, market_id):
             continue
         if "session_date" not in data and path.parent.name:
             data = {**data, "session_date": path.parent.name}
@@ -1280,9 +1331,19 @@ def resolve_tech_watchlist_path(
     config: PortfolioConfig | None = None,
     *,
     reports_dir: Path | None = None,
+    market: MarketId | str | None = None,
 ) -> Path | None:
     """Resolve Lane A tech watchlist file (env → config → logs → live_reports)."""
     root = _repo_root()
+    market_id: MarketId | None = None
+    if market is not None:
+        market_id = normalize_market(str(market))
+    elif config is not None and getattr(config, "market", None):
+        try:
+            market_id = normalize_market(str(config.market))
+        except ValueError:
+            market_id = None
+
     candidates: list[Path] = []
 
     for env_name in ("TECH_WATCHLIST_PATH", "LANE_A_TECH_WATCHLIST_PATH"):
@@ -1300,13 +1361,25 @@ def resolve_tech_watchlist_path(
             path = root / path
         candidates.append(path)
 
-    candidates.append(root / "logs" / "lane_a" / "tech_watchlist.json")
-    candidates.append(root / "live_reports" / "lane_a" / "tech_watchlist.json")
-    if reports_dir is not None:
-        candidates.append(Path(reports_dir) / "lane_a" / "tech_watchlist.json")
-        candidates.append(Path(reports_dir).parent / "lane_a" / "tech_watchlist.json")
-    # Labeled demo fixture last — never silent live; UI marks data_label=demo_fixtures.
-    candidates.append(root / "fixtures" / "lane_a" / "valid_lane_a_tech_watchlist.json")
+    if market_id == "HK":
+        candidates.append(root / "logs" / "lane_a" / "hk" / "tech_watchlist.json")
+        candidates.append(root / "live_reports" / "lane_a" / "hk" / "tech_watchlist.json")
+        if reports_dir is not None:
+            candidates.append(Path(reports_dir) / "lane_a" / "hk" / "tech_watchlist.json")
+            candidates.append(
+                Path(reports_dir).parent / "lane_a" / "hk" / "tech_watchlist.json"
+            )
+        candidates.append(
+            root / "fixtures" / "lane_a" / "valid_lane_a_tech_watchlist_hk.json"
+        )
+    else:
+        candidates.append(root / "logs" / "lane_a" / "tech_watchlist.json")
+        candidates.append(root / "live_reports" / "lane_a" / "tech_watchlist.json")
+        if reports_dir is not None:
+            candidates.append(Path(reports_dir) / "lane_a" / "tech_watchlist.json")
+            candidates.append(Path(reports_dir).parent / "lane_a" / "tech_watchlist.json")
+        # Labeled demo fixture last — never silent live; UI marks data_label=demo_fixtures.
+        candidates.append(root / "fixtures" / "lane_a" / "valid_lane_a_tech_watchlist.json")
 
     seen: set[str] = set()
     for path in candidates:
@@ -1356,6 +1429,7 @@ def build_premarket_decision(
     config: PortfolioConfig,
     *,
     reports_dir: Path | None = None,
+    market: MarketId | str | None = None,
 ) -> dict[str, Any]:
     """Board-facing Lane A premarket decision panel (lane_a_tech_1.0)."""
     from data.lane_a_tech_watchlist import (
@@ -1363,13 +1437,29 @@ def build_premarket_decision(
         load_lane_a_tech_watchlist,
     )
 
-    path = resolve_tech_watchlist_path(config, reports_dir=reports_dir)
+    market_id = (
+        normalize_market(str(market))
+        if market is not None
+        else (
+            normalize_market(str(config.market))
+            if getattr(config, "market", None)
+            else None
+        )
+    )
+    path = resolve_tech_watchlist_path(
+        config, reports_dir=reports_dir, market=market_id
+    )
+    expect_path = (
+        "logs/lane_a/hk/tech_watchlist.json"
+        if market_id == "HK"
+        else "logs/lane_a/tech_watchlist.json"
+    )
     if path is None:
         return empty_premarket_decision(
             status="waiting",
             headline_zh="今日盘前决策：等待同步",
             detail_zh=(
-                "还没有可读的 Lane A 技术面名单（logs/lane_a/tech_watchlist.json）。"
+                f"还没有可读的 Lane A 技术面名单（{expect_path}）。"
                 "盘前 Autopilot / Analyst 产出后，或 Engineer 同步到云端后，这里会自动出现。"
             ),
             no_trade_reason_zh="缺文件 — 今日 Lane A 应按 no_trade_day 处理（不会静默假装有名单）",
@@ -1509,35 +1599,154 @@ class OpsSnapshot:
     premarket: dict[str, Any] = field(default_factory=dict)
     # PROH-159: RTH resident runner status (heartbeat.rth_runner)
     rth_resident: dict[str, Any] = field(default_factory=dict)
+    # PROH-179: dual-market board (always both pools when heartbeat present)
+    market: str = "US"
+    markets_board: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _phase_zh(phase: str, market: MarketId) -> str:
+    if market == "HK":
+        return {
+            "pre_open": "港股盘前",
+            "rth": "港股常规交易时段",
+            "lunch": "港股午休（空转、不下单）",
+            "after_close": "港股已收盘",
+            "weekend": "周末休市",
+            "holiday": "港股假日休市",
+        }.get(phase, phase)
+    return {
+        "pre_open": "美股盘前（尚未开市）",
+        "rth": "美股常规交易时段",
+        "after_close": "美股已收盘",
+        "weekend": "周末休市",
+        "holiday": "美股假日休市",
+    }.get(phase, phase)
+
+
+def build_dual_market_board(
+    heartbeat: dict[str, Any] | None,
+    *,
+    repo_root: Path | None = None,
+    reports_dir: Path | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Noah 10s board: which market is live, capital left, today's watchlist."""
+    root = repo_root or _repo_root()
+    hb = heartbeat if isinstance(heartbeat, dict) else {}
+    markets_raw = hb.get("markets") if isinstance(hb.get("markets"), dict) else {}
+    active = hb.get("active_market")
+    if active is None:
+        try:
+            active = active_order_market(now)
+        except Exception:
+            active = None
+
+    board: dict[str, Any] = {
+        "active_market": active,
+        "headline_zh": (
+            f"现在优先：{active}"
+            if active
+            else "现在：两市均非连续竞价（或未知）"
+        ),
+        "US": {},
+        "HK": {},
+    }
+    for mid in ("US", "HK"):
+        market_id: MarketId = mid  # type: ignore[assignment]
+        phase = session_phase(market_id, now)
+        block = markets_raw.get(mid) if isinstance(markets_raw.get(mid), dict) else {}
+        if not block and isinstance(hb.get("rth_runner"), dict):
+            rr = hb["rth_runner"]
+            if str(rr.get("market") or "US").upper() == mid:
+                block = rr
+        cap = block.get("capital_snapshot") if isinstance(block, dict) else None
+        if not isinstance(cap, dict):
+            # Fall back to config pool sizes when no heartbeat yet.
+            try:
+                cfg = load_portfolio_config(root / default_config_for(market_id))
+                ledger = cfg.create_ledger()
+                cap = {
+                    "total": float(cfg.total_capital),
+                    "lane_a": float(ledger.lane_a_balance),
+                    "lane_b": float(ledger.lane_b_balance),
+                }
+            except Exception:
+                cap = {"total": None, "lane_a": None, "lane_b": None}
+
+        wl = build_lane_a_watchlist_panel(
+            market=market_id,
+            reports_dir=reports_dir,
+            repo_root=root,
+        )
+        if wl.status == "ok":
+            wl_zh = f"有名单 · 可交易 {len(wl.deployable)} 只"
+        elif wl.status == "no_trade_day":
+            wl_zh = "今日无交易名单（no_trade_day）"
+        elif wl.status == "bad_schema":
+            wl_zh = "名单无效"
+        else:
+            wl_zh = "尚无盘前名单"
+
+        runner_status = str(block.get("status") or "") if block else ""
+        running = runner_status in {"rth_running", "running", "starting"} or (
+            phase == "rth" and bool(block) and not block.get("opend_disconnected")
+        )
+        board[mid] = {
+            "market": mid,
+            "label_zh": "美股" if mid == "US" else "港股",
+            "phase": phase,
+            "phase_zh": _phase_zh(phase, market_id),
+            "is_active": active == mid,
+            "running": bool(running and phase == "rth"),
+            "runner_status": runner_status or None,
+            "capital": {
+                "total": _as_float(cap.get("total")),
+                "lane_a": _as_float(cap.get("lane_a")),
+                "lane_b": _as_float(cap.get("lane_b")),
+            },
+            "watchlist": {
+                "status": wl.status,
+                "no_trade_day": wl.no_trade_day,
+                "summary_zh": wl_zh,
+                "as_of": wl.as_of,
+                "deployable_count": len(wl.deployable),
+            },
+            "message": str(block.get("message") or "") if block else None,
+        }
+    return board
 
 
 def build_rth_resident_status(
     heartbeat: dict[str, Any] | None,
     *,
     now: datetime | None = None,
+    market: MarketId | str | None = None,
 ) -> dict[str, Any]:
     """Plain-Chinese panel: is the RTH sim runner supposed to be alive right now?
 
-    Consumes Engineer heartbeat ``rth_runner`` block (PROH-157). Wall-clock RTH
-    gate comes from ``core.rth`` so 休市 copy stays honest even without a file.
+    Consumes Engineer heartbeat ``rth_runner`` / ``markets.*`` (PROH-157/179).
+    Wall-clock gate comes from ``market_session`` so HK lunch stays honest.
     """
-    phase = session_phase(now)
-    phase_zh = {
-        "pre_open": "盘前（尚未开市）",
-        "rth": "美股常规交易时段",
-        "after_close": "已收盘",
-        "weekend": "周末休市",
-        "holiday": "假日休市",
-    }.get(phase, phase)
+    market_id: MarketId = (
+        normalize_market(str(market)) if market is not None else "US"
+    )
+    phase = session_phase(market_id, now)
+    phase_zh = _phase_zh(phase, market_id)
 
     block: dict[str, Any] = {}
     if isinstance(heartbeat, dict):
-        raw = heartbeat.get("rth_runner")
-        if isinstance(raw, dict):
-            block = raw
+        markets = heartbeat.get("markets")
+        if isinstance(markets, dict) and isinstance(markets.get(market_id), dict):
+            block = markets[market_id]
+        else:
+            raw = heartbeat.get("rth_runner")
+            if isinstance(raw, dict):
+                raw_m = str(raw.get("market") or "US").upper()
+                if market is None or raw_m == market_id:
+                    block = raw
 
     generated = None
     age_minutes: float | None = None
@@ -1580,6 +1789,7 @@ def build_rth_resident_status(
             "expect_running": expect_running,
             "phase": phase,
             "phase_zh": phase_zh,
+            "market": market_id,
             "sim_label_zh": sim_tag,
             "heartbeat_age_minutes": round(age_minutes, 1) if age_minutes is not None else None,
             "heartbeat_as_of": generated.isoformat() if generated else None,
@@ -1591,11 +1801,11 @@ def build_rth_resident_status(
             "has_rth_block": bool(block),
         }
 
-    # Outside RTH: clock alone answers "该不该有模拟单" — no false "在跑".
+    # Outside continuous RTH (incl. HK lunch): clock alone answers.
     if phase != "rth":
         detail = f"现在是{phase_zh}，不该有模拟单在跑。"
-        if block and runner_status == "idle_outside_rth":
-            detail += " 本机常驻进程已按休市空转/待命。"
+        if block and runner_status in {"idle_outside_rth", "idle_lunch"}:
+            detail += " 本机常驻进程已按休市/午休空转/待命。"
         elif not block:
             detail += " （尚无常驻心跳文件，但不影响休市判断。）"
         return _pack("closed", detail=detail, tone="safe", expect_running=False)
@@ -1650,7 +1860,10 @@ def build_rth_resident_status(
     if runner_status in {"rth_running", "running", "starting"} or (
         str(block.get("phase") or "") == "rth" and not disconnected
     ):
-        bits = [f"开市中，常驻模拟进程在跑（{sim_tag}，真下单仍关）。"]
+        bits = [
+            f"{'港股' if market_id == 'HK' else '美股'}开市中，"
+            f"常驻模拟进程在跑（{sim_tag}，真下单仍关）。"
+        ]
         if block.get("orders_paused") and not disconnected:
             bits.append("今日暂停新单（例如空名单 / no-trade），但仍在值守。")
         fills = block.get("fills_count")
@@ -1683,15 +1896,37 @@ def build_ops_snapshot(
     *,
     reports_dir: Path | None = None,
     probe_opend: bool = True,
+    market: MarketId | str | None = None,
 ) -> OpsSnapshot:
     root = _repo_root()
-    cfg_path = Path(config_path) if config_path else root / "config" / "portfolio.yaml"
+    market_id: MarketId = (
+        normalize_market(str(market)) if market is not None else "US"
+    )
+    if config_path is not None:
+        cfg_path = Path(config_path)
+    else:
+        cfg_path = root / default_config_for(market_id)
+        # Prefer CI portfolio.yaml when market=US and virtual config unused in tests.
+        if market is None and (root / "config" / "portfolio.yaml").is_file():
+            cfg_path = root / "config" / "portfolio.yaml"
     config: PortfolioConfig = load_portfolio_config(cfg_path)
+    try:
+        cfg_market = normalize_market(str(getattr(config, "market", "US") or "US"))
+    except ValueError:
+        cfg_market = market_id
+    if market is not None and cfg_market != market_id:
+        # Explicit market wins — reload matching virtual config.
+        cfg_path = root / default_config_for(market_id)
+        config = load_portfolio_config(cfg_path)
+        cfg_market = market_id
+    elif market is None:
+        market_id = cfg_market
+
     sync = resolve_reports(reports_dir=reports_dir)
     rdir = sync.path
     promo = check_promotion(rdir, n=int(config.promotion.n_days))
-    report = load_latest_report(rdir)
-    all_reports = load_report_rows(rdir)
+    report = load_latest_report(rdir, market=market_id)
+    all_reports = load_report_rows(rdir, market=market_id)
     hosting_mode = detect_hosting_mode()
 
     path_s = str(rdir).replace("\\", "/")
@@ -1783,9 +2018,15 @@ def build_ops_snapshot(
         config=config,
         reports_dir=rdir,
         repo_root=root,
+        market=market_id,
     )
-    premarket = build_premarket_decision(config, reports_dir=rdir)
-    rth_resident = build_rth_resident_status(heartbeat)
+    premarket = build_premarket_decision(
+        config, reports_dir=rdir, market=market_id
+    )
+    rth_resident = build_rth_resident_status(heartbeat, market=market_id)
+    markets_board = build_dual_market_board(
+        heartbeat, repo_root=root, reports_dir=rdir
+    )
 
     if config.trading_enabled:
         alert = "真下单总开关是开着的——请确认这是有意为之。"
@@ -1844,11 +2085,22 @@ def build_ops_snapshot(
             else "虚拟盘实况正常。真下单仍关闭。"
         )
 
+    # Prefer market pool capital from heartbeat when report capital missing.
+    last_pnl_a = _as_float(capital.get("lane_a_pnl"))
+    last_pnl_b = _as_float(capital.get("lane_b_pnl"))
+    pool_cap = (markets_board.get(market_id) or {}).get("capital") or {}
+    if last_pnl_a is None and last_pnl_b is None and pool_cap:
+        # Surface pool remaining as total_capital context; PnL stays None.
+        pass
+    total_capital = float(config.total_capital)
+    if pool_cap.get("total") is not None:
+        total_capital = float(pool_cap["total"])
+
     return OpsSnapshot(
         trading_enabled=bool(config.trading_enabled),
         futu_env=str(config.futu.env),
         experiment_id=str(config.experiment_id),
-        total_capital=float(config.total_capital),
+        total_capital=total_capital,
         required_n=int(promo.required_n),
         counting_streak=int(promo.counting_streak),
         promotion_verdict=str(promo.verdict),
@@ -1857,8 +2109,8 @@ def build_ops_snapshot(
         lane_a_label=a_label,
         lane_b_label=b_label,
         last_session_date=session_date,
-        last_pnl_a=_as_float(capital.get("lane_a_pnl")),
-        last_pnl_b=_as_float(capital.get("lane_b_pnl")),
+        last_pnl_a=last_pnl_a,
+        last_pnl_b=last_pnl_b,
         last_halts=halts,
         alert=alert,
         reports_dir=str(rdir),
@@ -1889,6 +2141,8 @@ def build_ops_snapshot(
         lane_a_tech_watchlist=lane_a_wl.to_dict(),
         premarket=premarket,
         rth_resident=rth_resident,
+        market=market_id,
+        markets_board=markets_board,
     )
 
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": "lane_a_tech_1.0",
+  "as_of": "2026-10-01",
+  "universe_note": "no_trade_day: HKEX full-day holiday (National Day 2026-10-01). Empty names by design — HK session must idle; never invent fills or fallback to HK.00700 / US.QQQ.",
+  "timezone": "Asia/Hong_Kong",
+  "generated_by": "analyst-pl / PROH-176 / autopilot:lane-a-tech-premarket-hk",
+  "market": "HK",
+  "names": []
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "lane_b_news_event_1.0",
+  "event_id": "evt-2026-09-15-hk00700-ai-major",
+  "as_of": "2026-09-15",
+  "detected_at": "2026-09-15T02:05:00+00:00",
+  "symbol": "HK.00700",
+  "headline": "Fixture: major AI product news for Tencent (HK sim path only)",
+  "severity": "major",
+  "score": 11.0,
+  "veto": false,
+  "auto_execute_sim": true,
+  "reasons": [
+    "PROH-179 fixture — HK news-event input for dual-market Lane B",
+    "Market-gated: HK session only; US runner must refuse"
+  ],
+  "sources": [
+    "fixtures/lane_b/sample_news_event_hk.json",
+    "Analyst/Quant detection placeholder"
+  ],
+  "structure_hint": "straddle",
+  "event_horizon_days": 1,
+  "generated_by": "PROH-179 fixture"
+}

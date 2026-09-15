@@ -57,6 +57,7 @@ ALLOWED_OPEND_MODES = frozenset({"mock", "opend", "opend_sim_fallback_mock"})
 ALLOWED_LANE_B_DAY_MODES = frozenset(
     {"scout_only", "deploy", "cooldown", "idle_empty", "halt", "event_cycle"}
 )
+ALLOWED_MARKETS = frozenset({"US", "HK"})
 
 
 class SchemaError(ValueError):
@@ -102,6 +103,13 @@ def validate_daily_report(report: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(data["futu_env"], str) or not data["futu_env"]:
         raise SchemaError("futu_env: expected non-empty string")
+
+    # Optional PROH-175 field — dual-market runner always writes it.
+    if "market" in data and data["market"] is not None:
+        if data["market"] not in ALLOWED_MARKETS:
+            raise SchemaError(
+                f"market: expected one of {sorted(ALLOWED_MARKETS)}, got {data['market']!r}"
+            )
 
     capital = _require_dict(data["capital"], "capital")
     _require_keys(capital, REQUIRED_CAPITAL, "capital")
@@ -151,11 +159,19 @@ def validate_daily_report(report: dict[str, Any]) -> dict[str, Any]:
         if key not in paths or not isinstance(paths[key], str):
             raise SchemaError(f"artifact_paths.{key}: expected string")
 
-    # Optional PROH-90 fills[] — cloud boards sync report-only; keep loose.
+    # Optional fills[] — per-trade detail for the read-only dashboard (PROH-90).
     if "fills" in data and data["fills"] is not None:
         fills_list = _require_list(data["fills"], "fills")
         for i, row in enumerate(fills_list):
-            if not isinstance(row, dict):
-                raise SchemaError(f"fills[{i}]: expected object")
+            item = _require_dict(row, f"fills[{i}]")
+            for key in ("lane", "symbol"):
+                if key not in item or not isinstance(item[key], str) or not item[key]:
+                    raise SchemaError(f"fills[{i}].{key}: expected non-empty string")
+            if item["lane"] not in {"A", "B"}:
+                raise SchemaError(f"fills[{i}].lane: expected 'A' or 'B'")
+            for num_key in ("qty", "price", "notional"):
+                if num_key in item and item[num_key] is not None:
+                    if not isinstance(item[num_key], (int, float)):
+                        raise SchemaError(f"fills[{i}].{num_key}: expected number or null")
 
     return data

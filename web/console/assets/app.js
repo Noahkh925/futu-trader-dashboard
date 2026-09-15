@@ -10,7 +10,6 @@
 
   const els = {
     gate: document.getElementById("gate"),
-    gateForm: document.getElementById("gate-form"),
     gatePassword: document.getElementById("gate-password"),
     gateSubmit: document.getElementById("gate-submit"),
     gateError: document.getElementById("gate-error"),
@@ -30,8 +29,19 @@
   let password = sessionStorage.getItem(PASS_KEY) || "";
   let autoTimer = null;
   let currentPage = "overview";
+  let selectedMarket = sessionStorage.getItem("console_market") || "US";
   let lastStrategy = null;
   let selectedReviewDate = null;
+
+  function marketQuery() {
+    const m = selectedMarket === "HK" ? "HK" : "US";
+    return "market=" + encodeURIComponent(m);
+  }
+
+  function withMarket(path) {
+    const sep = path.indexOf("?") >= 0 ? "&" : "?";
+    return path + sep + marketQuery();
+  }
 
   function headers(json) {
     const h = { Accept: "application/json" };
@@ -83,11 +93,6 @@
     } else {
       els.gateError.classList.add("hidden");
     }
-    // Re-run enter animation if gate is shown again after an error.
-    els.gate.style.animation = "none";
-    void els.gate.offsetWidth;
-    els.gate.style.animation = "";
-    setTimeout(() => els.gatePassword && els.gatePassword.focus(), 0);
   }
 
   function showApp() {
@@ -100,9 +105,48 @@
     if (node) node.textContent = text == null ? "" : String(text);
   }
 
+  function moneyShort(v) {
+    if (v == null || typeof v !== "number" || Number.isNaN(v)) return "—";
+    return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+
+  function renderMarketsBoard(board) {
+    if (!board) return;
+    setText("markets-headline", board.headline_zh || "双市场");
+    ["US", "HK"].forEach((mid) => {
+      const row = board[mid] || {};
+      const prefix = mid === "US" ? "us" : "hk";
+      const phaseBits = [];
+      if (row.running) phaseBits.push("在跑");
+      else if (row.is_active) phaseBits.push("优先");
+      phaseBits.push(row.phase_zh || "—");
+      setText(prefix + "-phase", phaseBits.join(" · "));
+      const cap = row.capital || {};
+      setText(
+        prefix + "-cap",
+        "本金 " +
+          moneyShort(cap.total) +
+          " · A " +
+          moneyShort(cap.lane_a) +
+          " · B " +
+          moneyShort(cap.lane_b)
+      );
+      const wl = row.watchlist || {};
+      setText(prefix + "-wl", wl.summary_zh || "名单 —");
+      const card = document.querySelector(
+        '.market-card[data-m="' + mid + '"]'
+      );
+      if (card) {
+        card.classList.toggle("active", !!row.is_active || !!row.running);
+        card.classList.toggle("selected", selectedMarket === mid);
+      }
+    });
+  }
+
   function renderOverview(data) {
     setText("env-pill", data.env_pill || "—");
     setText("as-of", data.data_as_of_zh || "数据截至 —");
+    renderMarketsBoard(data.markets_board);
 
     const dual = document.getElementById("dual-pill");
     if (data.dual_run && data.dual_run.label) {
@@ -591,7 +635,7 @@
   }
 
   async function refreshOverview() {
-    const data = await apiGet("/api/v1/overview");
+    const data = await apiGet(withMarket("/api/v1/overview"));
     renderOverview(data);
   }
 
@@ -601,7 +645,7 @@
   }
 
   async function refreshMarket() {
-    const data = await apiGet("/api/v1/market");
+    const data = await apiGet(withMarket("/api/v1/market"));
     renderMarket(data);
   }
 
@@ -755,7 +799,8 @@
     try {
       auth = await apiGet("/api/v1/auth/status");
     } catch (err) {
-      showGate("暂时连不上作战台。请稍后再试；若持续失败，联系维护人。");
+      showGate("无法连接控制台 API。请确认已启动 futu-console。");
+      els.gate.classList.remove("hidden");
       return;
     }
 
@@ -769,32 +814,43 @@
     startAutoRefresh();
   }
 
-  async function submitGate(ev) {
-    if (ev) ev.preventDefault();
+  els.gateSubmit.addEventListener("click", async () => {
     password = (els.gatePassword.value || "").trim();
-    if (!password) {
-      showGate("请先输入密码。");
-      return;
-    }
     sessionStorage.setItem(PASS_KEY, password);
     showApp();
     await refresh();
     startAutoRefresh();
-  }
+  });
 
-  if (els.gateForm) {
-    els.gateForm.addEventListener("submit", submitGate);
-  } else {
-    els.gateSubmit.addEventListener("click", submitGate);
-  }
+  els.gatePassword.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") els.gateSubmit.click();
+  });
 
   document.getElementById("btn-refresh").addEventListener("click", () => {
     refresh();
   });
 
-  document.querySelectorAll(".nav button").forEach((btn) => {
+  document.querySelectorAll(".nav button[data-page]").forEach((btn) => {
     btn.addEventListener("click", () => setPage(btn.dataset.page));
   });
+
+  function syncMarketButtons() {
+    document.querySelectorAll(".market-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.market === selectedMarket);
+    });
+  }
+
+  document.querySelectorAll(".market-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const m = btn.dataset.market === "HK" ? "HK" : "US";
+      if (m === selectedMarket) return;
+      selectedMarket = m;
+      sessionStorage.setItem("console_market", m);
+      syncMarketButtons();
+      refresh();
+    });
+  });
+  syncMarketButtons();
 
   if (els.paramForm) {
     els.paramForm.addEventListener("submit", saveParams);

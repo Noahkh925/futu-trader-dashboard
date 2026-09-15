@@ -3,9 +3,9 @@ lane_a_ratio: 0.70
 lane_b_ratio: 0.30
 trading_enabled: false
 allow_production_live: false
-experiment_id: baseline
-market: US
-# T3 traffic switches (ADR-0001). Legacy remains Noah's default until cutover.
+experiment_id: baseline-hk
+# Isolated HK paper pool (USD notional). Never share cash with US pool.
+market: HK
 runtime:
   active_kernel: legacy
   dual_run: true
@@ -24,10 +24,10 @@ futu:
   env: staging
 
 lane_a:
-  # symbol used when universe_mode=fixed; never a silent fallback for watchlist.
-  symbol: US.QQQ
-  universe_mode: fixed
-  tech_watchlist_path: fixtures/lane_a/valid_lane_a_tech_watchlist.json
+  # fixed/watchlist only; never silent-fallback to HK.00700 or US.QQQ.
+  symbol: HK.00700
+  universe_mode: watchlist
+  tech_watchlist_path: logs/lane_a/hk/tech_watchlist.json
   empty_universe_policy: no_trade
   max_universe_names: 3
   orb:
@@ -45,11 +45,11 @@ lane_a:
     max_position_pct: 0.25
     allow_add_to_position: false
   paper:
-    # mock_fill: CI / offline. Use config/portfolio.virtual.yaml for OpenD simulate.
-    mode: mock_fill
+    mode: opend_sim
     fill_slippage_bps: 0.0
 
 lane_b:
+  # P0: HK Lane B options structure off; events via news path when available.
   horizon_days: 14
   deploy_window_days: 3
   cooldown_days: 2
@@ -61,10 +61,10 @@ lane_b:
   strike_step: 0.0
   min_price: 5.0
   min_avg_volume: 0
-  require_us: true
-  require_options_tradable: true
+  require_us: false
+  require_options_tradable: false
   analyst_watchlist_path: null
-  news_event_path: null
+  news_event_path: logs/lane_b/hk/news_events
   calendar:
     source: fixture
     fixture_path: fixtures/earnings_calendar.json
@@ -72,4 +72,4 @@ lane_b:
     source: fixture
     fixture_path: fixtures/option_chains.json
   paper:
-    mode: mock_fill
+    mode: opend_sim
