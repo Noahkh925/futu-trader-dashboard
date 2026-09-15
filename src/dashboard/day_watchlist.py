@@ -181,11 +181,23 @@ def _from_lane_b_news(
     repo_root: Path,
 ) -> DayWatchlistPanel:
     """Best-effort: project executable news-event symbols when no day product."""
-    from data.lane_b_news_event import (
-        LaneBNewsEventError,
-        discover_news_event_paths,
-        load_lane_b_news_events,
-    )
+    try:
+        from data.lane_b_news_event import (
+            LaneBNewsEventError,
+            discover_news_event_paths,
+            load_lane_b_news_events,
+        )
+    except ModuleNotFoundError:
+        # Render console image is a subset — news-event parser is optional.
+        return DayWatchlistPanel(
+            market=market,
+            lane="B",
+            status="missing",
+            symbols=[],
+            empty_reason="今日 Lane B 尚无盘前名单（云端精简镜像未带事件解析器）",
+            source="missing",
+            error="lane_b_news_event_not_shipped",
+        )
 
     candidates: list[Path] = []
     if reports_dir is not None:
